@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar carta · Krys{% endblock %}
+{% block content %}
+<section class="danger-card">
+  <span class="danger-icon">!</span><span class="eyebrow">Eliminación definitiva</span>
+  <h1>¿Eliminar la carta CPC {{ letter.correlative }}?</h1>
+  <p>Se eliminarán permanentemente sus {{ letter.presentations.count }} filas, la respuesta AAM vinculada y ambos archivos PDF. Esta acción no puede recuperarse.</p>
+  <div class="danger-summary"><strong>{{ letter.full_number }}</strong>{% if letter.response_letter %}<span>Respuesta: {{ letter.response_letter.full_number }}</span>{% endif %}</div>
+  <form method="post">{% csrf_token %}<a class="button button-ghost" href="{% url 'dashboard' %}">Cancelar</a><button class="button button-danger" type="submit">Sí, eliminar definitivamente</button></form>
+</section>
+{% endblock %}

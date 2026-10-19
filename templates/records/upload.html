@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Cargar cartas · Krys{% endblock %}
+{% block content %}
+<section class="hero-row compact">
+  <div><span class="eyebrow">Nueva carga</span><h1>Cargar cartas PDF</h1><p>Selecciona la cadena documental necesaria. Nada se guarda hasta que confirmes la vista previa.</p></div>
+  <a class="button button-ghost" href="{% url 'dashboard' %}">Volver</a>
+</section>
+
+<section class="panel upload-panel">
+  <form method="post" enctype="multipart/form-data" class="upload-form">
+    {% csrf_token %}
+    <div class="drop-zone">
+      <span class="upload-icon">PDF</span>
+      <label for="id_files">Selecciona una o varias cartas</label>
+      {{ form.files }}
+      <small>Incluye los documentos anteriores cuando sean necesarios para calcular el trámite.</small>
+    </div>
+    {% for error in form.files.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+    <button class="button button-primary" type="submit">Extraer y revisar</button>
+  </form>
+</section>
+
+{% if preview %}
+<section class="panel preview-panel">
+  <div class="panel-heading"><div><span class="eyebrow">Vista previa</span><h2>Revisa antes de guardar</h2></div><span class="count-pill">{{ preview.rows|length }} filas</span></div>
+  {% if preview.warnings %}<div class="warning-box"><strong>Advertencias</strong>{% for warning in preview.warnings %}<p>{{ warning }}</p>{% endfor %}</div>{% endif %}
+  <form method="post" action="{% url 'confirm_upload' %}">
+    {% csrf_token %}
+    <div class="reception-grid">
+      {% for doc in preview.documents %}{% if doc.direction == 'CPC_AAM' %}
+        <label>Fecha de recepción · CPC {{ doc.correlative }}<input type="date" name="reception_{{ doc.correlative }}" required></label>
+      {% endif %}{% endfor %}
+    </div>
+    <div class="table-wrap">
+      <table class="preview-table">
+        <thead><tr><th>CPC</th><th>Fecha</th><th>Trámite</th><th>Equipo</th><th>Código</th><th>Resultado</th><th>Detalle</th><th>AAM</th><th>Dato adicional</th></tr></thead>
+        <tbody>{% for row in preview.rows %}<tr>
+          <td>{{ row.cpc_correlative }}</td><td>{{ row.cpc_date }}</td><td>{{ row.procedure_type }}</td><td>{{ row.equipment_type }}</td><td><strong>{{ row.equipment_code }}</strong></td>
+          <td><span class="status {% if row.result == 'Aprobado' %}status-approved{% else %}status-observed{% endif %}">{{ row.result|default:'Pendiente' }}</span></td>
+          <td class="detail-cell">{{ row.detail|linebreaksbr }}</td><td>{{ row.aam_correlative }}</td>
+          <td><textarea name="additional_{{ row.row_index }}" rows="2" aria-label="Dato adicional para {{ row.equipment_code }}"></textarea></td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <div class="confirm-bar"><span>Confirma que los datos coinciden con las cartas.</span><button class="button button-primary" type="submit">Guardar {{ preview.rows|length }} filas</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Registros · Krys{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div>
+    <span class="eyebrow">Base de equipos</span>
+    <h1>Seguimiento de cartas y evaluaciones</h1>
+    <p>Consulta cada presentación, su respuesta y el resultado SST asociado.</p>
+  </div>
+  <div class="hero-actions"><a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a></div>
+</section>
+
+<section class="stats-grid" aria-label="Resumen">
+  <article class="stat-card"><span>Registros</span><strong>{{ total }}</strong><small>equipos presentados</small></article>
+  <article class="stat-card stat-approved"><span>Aprobados</span><strong>{{ approved }}</strong><small>aptos para ingreso</small></article>
+  <article class="stat-card stat-observed"><span>Observados</span><strong>{{ observed }}</strong><small>requieren subsanación</small></article>
+  <article class="stat-card"><span>Sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
+</section>
+
+<section class="panel">
+  <div class="panel-toolbar">
+    <form method="get" class="filters">
+      <input type="search" name="q" value="{{ query }}" placeholder="Buscar placa, carta o tipo..." aria-label="Buscar">
+      <select name="result" aria-label="Filtrar por resultado">
+        <option value="">Todos los resultados</option>
+        <option value="APPROVED" {% if selected_result == 'APPROVED' %}selected{% endif %}>Aprobado</option>
+        <option value="OBSERVED" {% if selected_result == 'OBSERVED' %}selected{% endif %}>Observado-No conforme</option>
+      </select>
+      <button class="button button-secondary" type="submit">Filtrar</button>
+    </form>
+    <div class="export-actions">
+      <a href="{% url 'export_csv' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}">CSV</a>
+      <a href="{% url 'export_xlsx' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}">Excel</a>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>CPC</th><th>Fecha / recepción</th><th>Trámite</th><th>Equipo</th><th>Resultado SST</th><th>Respuesta</th><th>Acciones</th></tr></thead>
+      <tbody>
+      {% for record in records %}
+        <tr>
+          <td><strong>{{ record.cpc_letter.correlative }}</strong><small>{{ record.cpc_letter.full_number }}</small></td>
+          <td>{{ record.cpc_letter.letter_date|date:'d/m/Y' }}<small>Rec. {{ record.cpc_letter.reception_date|date:'d/m/Y'|default:'—' }}</small></td>
+          <td><span class="tag">{{ record.procedure_type }}</span></td>
+          <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small></td>
+          <td>
+            {% if record.evaluation %}
+              <span class="status {% if record.evaluation.result == 'APPROVED' %}status-approved{% else %}status-observed{% endif %}">{{ record.evaluation.get_result_display }}</span>
+              <small class="detail-text">{{ record.evaluation.detail }}</small>
+            {% else %}<span class="status status-pending">Pendiente</span>{% endif %}
+          </td>
+          <td>
+            {% if record.evaluation %}<strong>{{ record.evaluation.response_letter.correlative }}</strong><small>{{ record.evaluation.response_letter.letter_date|date:'d/m/Y' }}</small>{% else %}—{% endif %}
+          </td>
+          <td class="row-actions">
+            <a href="{% url 'edit_presentation' record.pk %}">Editar</a>
+            {% if record.cpc_letter.pdf %}<a href="{{ record.cpc_letter.pdf.url }}" target="_blank">PDF CPC</a>{% endif %}
+            {% if record.evaluation and record.evaluation.response_letter.pdf %}<a href="{{ record.evaluation.response_letter.pdf.url }}" target="_blank">PDF AAM</a>{% endif %}
+            <a class="danger-link" href="{% url 'delete_letter' record.cpc_letter.pk %}">Eliminar carta</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7"><div class="empty-state"><strong>Aún no hay registros.</strong><span>Carga una carta CPC y su respuesta AAM para comenzar.</span></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

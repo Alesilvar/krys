@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Ingreso manual · Krys{% endblock %}
+{% block content %}
+<section class="hero-row compact">
+  <div><span class="eyebrow">Nuevo registro</span><h1>Ingreso manual</h1><p>Registra un equipo. Si la carta ya existe, se añadirá otra fila a esa misma carta.</p></div>
+  <a class="button button-ghost" href="{% url 'dashboard' %}">Volver</a>
+</section>
+<section class="panel form-panel manual-panel">
+  <form method="post" enctype="multipart/form-data" class="stack-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="field-error">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-section"><span class="eyebrow">Carta de entrada</span><h2>Datos CPC</h2></div>
+    <div class="two-columns">
+      {% include 'records/form_field.html' with field=form.cpc_full_number %}
+      {% include 'records/form_field.html' with field=form.predecessor_aam %}
+      {% include 'records/form_field.html' with field=form.cpc_date %}
+      {% include 'records/form_field.html' with field=form.reception_date %}
+      {% include 'records/form_field.html' with field=form.cpc_pdf %}
+    </div>
+    <div class="form-section"><span class="eyebrow">Fila de la tabla</span><h2>Equipo y evaluación</h2></div>
+    <div class="two-columns">
+      {% include 'records/form_field.html' with field=form.equipment_type %}
+      {% include 'records/form_field.html' with field=form.equipment_code %}
+      {% include 'records/form_field.html' with field=form.result %}
+      {% include 'records/form_field.html' with field=form.detail %}
+      {% include 'records/form_field.html' with field=form.aam_full_number %}
+      {% include 'records/form_field.html' with field=form.aam_date %}
+      {% include 'records/form_field.html' with field=form.aam_pdf %}
+      {% include 'records/form_field.html' with field=form.additional_data %}
+    </div>
+    <div class="form-actions"><button class="button button-primary" type="submit">Guardar registro</button></div>
+  </form>
+</section>
+{% endblock %}

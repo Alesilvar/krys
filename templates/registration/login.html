@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Ingresar · Krys{% endblock %}
+{% block content %}
+<section class="login-layout">
+  <div class="login-intro">
+    <span class="eyebrow">Vía Expresa Santa Rosa</span>
+    <h1>Control documental de equipos, sin hojas dispersas.</h1>
+    <p>Centraliza cartas CPC, respuestas AAM y evaluaciones SST en un registro trazable.</p>
+    <div class="login-feature"><span>01</span><p>Extracción automática desde PDF seleccionable.</p></div>
+    <div class="login-feature"><span>02</span><p>Una fila por equipo, con su historial de presentaciones.</p></div>
+    <div class="login-feature"><span>03</span><p>Exportación inmediata a CSV y Excel.</p></div>
+  </div>
+  <div class="login-card">
+    <div class="brand login-brand"><span class="brand-mark">K</span><span><strong>Krys</strong><small>Acceso seguro</small></span></div>
+    <h2>Bienvenido</h2>
+    <p class="muted">Ingresa con tu cuenta personal.</p>
+    <form method="post" class="stack-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="field-error">Usuario o contraseña incorrectos.</div>{% endif %}
+      <label for="id_username">Usuario</label>
+      <input id="id_username" type="text" name="username" autocomplete="username" autofocus required>
+      <label for="id_password">Contraseña</label>
+      <input id="id_password" type="password" name="password" autocomplete="current-password" required>
+      <button class="button button-primary button-wide" type="submit">Ingresar</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

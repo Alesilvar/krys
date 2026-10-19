@@ -1,0 +1,40 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Krys{% endblock %}</title>
+  <meta name="description" content="Control documental de equipos y evaluaciones SST">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+  {% if user.is_authenticated %}
+  <header class="topbar">
+    <a class="brand" href="{% url 'dashboard' %}" aria-label="Ir al inicio">
+      <span class="brand-mark">K</span>
+      <span><strong>Krys</strong><small>Control documental SST</small></span>
+    </a>
+    <nav class="nav-actions" aria-label="Navegación principal">
+      <a href="{% url 'dashboard' %}">Registros</a>
+      <a href="{% url 'manual_record' %}">Ingreso manual</a>
+      <a class="button button-primary button-small" href="{% url 'upload_letters' %}">Cargar cartas</a>
+      <span class="user-chip">{{ user.get_full_name|default:user.username }}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button" type="submit">Salir</button></form>
+    </nav>
+  </header>
+  {% endif %}
+
+  <main class="page-shell {% if not user.is_authenticated %}auth-shell{% endif %}">
+    {% if messages %}
+      <div class="messages" aria-live="polite">
+        {% for message in messages %}<div class="message message-{{ message.tags }}">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
