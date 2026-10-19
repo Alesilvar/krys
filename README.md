@@ -24,6 +24,24 @@ de guardar y mantiene los archivos como respaldo.
 - HTML y CSS adaptables a escritorio y móvil.
 - openpyxl para exportar Excel.
 
+## Arquitectura
+
+Krys es un monolito modular: se ejecuta y despliega como una sola aplicación,
+pero el módulo `records` separa sus responsabilidades para evitar que las
+reglas de negocio dependan de las páginas web.
+
+- `models.py`: entidades y relaciones persistentes.
+- `forms.py`: validación de entradas web.
+- `selectors.py`: consultas y métricas de lectura.
+- `use_cases.py`: altas, modificaciones y eliminación transaccional.
+- `services.py`: importación y persistencia de lotes PDF.
+- `exports.py`: transformación a CSV y Excel.
+- `views.py`: capa HTTP; coordina formularios, casos de uso y respuestas.
+- `extractor.py`: motor independiente de extracción documental.
+
+Esta organización permite reutilizar los mismos casos de uso desde comandos o
+una API futura sin separar todavía el frontend y el backend ni duplicar reglas.
+
 ## Arranque local
 
 Desde esta carpeta:

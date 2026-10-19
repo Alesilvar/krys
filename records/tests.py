@@ -97,6 +97,51 @@ class TestWebFlow(TestCase):
         self.assertFalse(Letter.objects.exists())
         self.assertFalse(Presentation.objects.exists())
 
+    def test_edit_can_attach_a_cpc_pdf(self):
+        cpc = Letter.objects.create(
+            full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0201",
+            correlative=201,
+            direction=Letter.Direction.CPC_AAM,
+            letter_date=date(2026, 5, 4),
+            reception_date=date(2026, 5, 5),
+            source=Letter.Source.MANUAL,
+            created_by=self.user,
+        )
+        equipment = Equipment.objects.create(code="EXC-201")
+        presentation = Presentation.objects.create(
+            cpc_letter=cpc,
+            equipment=equipment,
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(
+            MEDIA_ROOT=Path(media_root)
+        ):
+            response = self.client.post(
+                reverse("edit_presentation", args=[presentation.pk]),
+                {
+                    "cpc_full_number": cpc.full_number,
+                    "cpc_date": "2026-05-04",
+                    "reception_date": "2026-05-05",
+                    "equipment_type": "Excavadora",
+                    "equipment_code": "EXC-201",
+                    "result": "",
+                    "detail": "",
+                    "aam_full_number": "",
+                    "aam_date": "",
+                    "additional_data": "",
+                    "cpc_pdf": SimpleUploadedFile(
+                        "cpc-201.pdf", b"%PDF-1.4\n%%EOF", content_type="application/pdf"
+                    ),
+                },
+            )
+
+            self.assertRedirects(response, reverse("dashboard"))
+            cpc.refresh_from_db()
+            self.assertTrue(cpc.pdf.name.endswith("cpc-201.pdf"))
+            self.assertTrue(Path(cpc.pdf.path).is_file())
+
 
 class TestPdfImport(TestCase):
     def setUp(self):

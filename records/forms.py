@@ -55,7 +55,9 @@ class PresentationEditForm(forms.Form):
     equipment_type = forms.CharField(label="Tipo de equipo", max_length=100)
     equipment_code = forms.CharField(label="Placa / código", max_length=40)
     result = forms.ChoiceField(
-        label="Resultado SST", choices=[("", "Pendiente"), *Evaluation.Result.choices]
+        label="Resultado SST",
+        choices=[("", "Pendiente"), *Evaluation.Result.choices],
+        required=False,
     )
     detail = forms.CharField(
         label="Detalle", required=False, widget=forms.Textarea(attrs={"rows": 4})
@@ -143,7 +145,9 @@ class ManualRecordForm(forms.Form):
     equipment_type = forms.CharField(label="Tipo de equipo", max_length=100)
     equipment_code = forms.CharField(label="Placa / código", max_length=40)
     result = forms.ChoiceField(
-        label="Resultado SST", choices=[("", "Pendiente"), *Evaluation.Result.choices]
+        label="Resultado SST",
+        choices=[("", "Pendiente"), *Evaluation.Result.choices],
+        required=False,
     )
     detail = forms.CharField(
         label="Detalle", required=False, widget=forms.Textarea(attrs={"rows": 4})
