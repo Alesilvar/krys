@@ -12,6 +12,10 @@ de guardar y mantiene los archivos como respaldo.
 - Relación estricta de una respuesta AAM por carta CPC.
 - Cálculo del tipo de trámite siguiendo la cadena documental.
 - Advertencias para equipos de una respuesta que no aparecen en la carta CPC.
+- Desmovilización con historial separado: un equipo conserva su evaluación SST
+  y puede cambiar posteriormente de Activo a Retirado.
+- Extracción de marca, modelo, serie, año y fecha de salida en solicitudes de
+  retiro, junto con la carta AAM que autoriza el movimiento.
 - Ingreso manual con PDF CPC/AAM opcional como respaldo.
 - Edición de filas y cartas, y eliminación permanente de la carta completa.
 - Búsqueda, filtros y exportación a CSV o Excel.
@@ -21,6 +25,8 @@ de guardar y mantiene los archivos como respaldo.
 - Python 3.12 y Django 5.2.
 - PostgreSQL 18 en Docker.
 - `pdftotext` de Poppler para leer los PDF sin OCR.
+- Extracción tolerante a listas, viñetas, placas en prosa y respuestas de
+  conformidad que no vuelven a enumerar los equipos.
 - HTML y CSS adaptables a escritorio y móvil.
 - openpyxl para exportar Excel.
 
@@ -66,9 +72,10 @@ Para crear otra cuenta con acceso completo a la aplicación:
 .venv/bin/python manage.py test
 ```
 
-Las 22 pruebas actuales cubren los seis PDF aportados (150/118, 178/127 y
-190/136), la segunda presentación, el modelo de datos, el ingreso manual, la
-exportación y el borrado completo.
+Las 32 pruebas actuales cubren los PDF aportados, formatos variables de listas
+y observaciones, aprobaciones generales, cadenas de subsanación, el modelo de
+datos, la desmovilización, el ingreso manual, la importación web, la exportación
+y el borrado completo.
 
 ## Configuración
 

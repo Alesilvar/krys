@@ -5,7 +5,7 @@
   <div>
     <span class="eyebrow">Base de equipos</span>
     <h1>Seguimiento de cartas y evaluaciones</h1>
-    <p>Consulta cada presentación, su respuesta y el resultado SST asociado.</p>
+    <p>Consulta cada presentación, su resultado SST y el estado operativo del equipo.</p>
   </div>
   <div class="hero-actions"><a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a></div>
 </section>
@@ -14,6 +14,7 @@
   <article class="stat-card"><span>Registros</span><strong>{{ total }}</strong><small>equipos presentados</small></article>
   <article class="stat-card stat-approved"><span>Aprobados</span><strong>{{ approved }}</strong><small>aptos para ingreso</small></article>
   <article class="stat-card stat-observed"><span>Observados</span><strong>{{ observed }}</strong><small>requieren subsanación</small></article>
+  <article class="stat-card stat-retired"><span>Retirados</span><strong>{{ retired }}</strong><small>equipos desmovilizados</small></article>
   <article class="stat-card"><span>Sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
 </section>
 
@@ -26,17 +27,22 @@
         <option value="APPROVED" {% if selected_result == 'APPROVED' %}selected{% endif %}>Aprobado</option>
         <option value="OBSERVED" {% if selected_result == 'OBSERVED' %}selected{% endif %}>Observado-No conforme</option>
       </select>
+      <select name="status" aria-label="Filtrar por estado operativo">
+        <option value="">Todos los estados</option>
+        <option value="ACTIVE" {% if selected_status == 'ACTIVE' %}selected{% endif %}>Activo</option>
+        <option value="RETIRED" {% if selected_status == 'RETIRED' %}selected{% endif %}>Retirado</option>
+      </select>
       <button class="button button-secondary" type="submit">Filtrar</button>
     </form>
     <div class="export-actions">
-      <a href="{% url 'export_csv' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}">CSV</a>
-      <a href="{% url 'export_xlsx' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}">Excel</a>
+      <a href="{% url 'export_csv' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}&status={{ selected_status|urlencode }}">CSV</a>
+      <a href="{% url 'export_xlsx' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}&status={{ selected_status|urlencode }}">Excel</a>
     </div>
   </div>
 
   <div class="table-wrap">
     <table>
-      <thead><tr><th>CPC</th><th>Fecha / recepción</th><th>Trámite</th><th>Equipo</th><th>Resultado SST</th><th>Respuesta</th><th>Acciones</th></tr></thead>
+      <thead><tr><th>CPC</th><th>Fecha / recepción</th><th>Trámite</th><th>Equipo</th><th>Estado operativo</th><th>Resultado SST</th><th>Respuesta</th><th>Acciones</th></tr></thead>
       <tbody>
       {% for record in records %}
         <tr>
@@ -44,6 +50,7 @@
           <td>{{ record.cpc_letter.letter_date|date:'d/m/Y' }}<small>Rec. {{ record.cpc_letter.reception_date|date:'d/m/Y'|default:'—' }}</small></td>
           <td><span class="tag">{{ record.procedure_type }}</span></td>
           <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small></td>
+          <td><span class="status {% if record.equipment.operational_status == 'RETIRED' %}status-observed{% else %}status-approved{% endif %}">{{ record.equipment.get_operational_status_display }}</span>{% if record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}</td>
           <td>
             {% if record.evaluation %}
               <span class="status {% if record.evaluation.result == 'APPROVED' %}status-approved{% else %}status-observed{% endif %}">{{ record.evaluation.get_result_display }}</span>
@@ -61,10 +68,25 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7"><div class="empty-state"><strong>Aún no hay registros.</strong><span>Carga una carta CPC y su respuesta AAM para comenzar.</span></div></td></tr>
+        <tr><td colspan="8"><div class="empty-state"><strong>Aún no hay registros.</strong><span>Carga una carta CPC y su respuesta AAM para comenzar.</span></div></td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+{% if movements %}
+<section class="panel">
+  <div class="panel-heading"><div><span class="eyebrow">Historial operativo</span><h2>Desmovilizaciones</h2></div><span class="count-pill">{{ movements|length }} movimientos</span></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Equipo</th><th>Marca / modelo</th><th>Serie / año</th><th>Salida</th><th>Solicitud CPC</th><th>Conformidad AAM</th><th>Estado</th></tr></thead>
+    <tbody>{% for movement in movements %}<tr>
+      <td><strong>{{ movement.equipment.code }}</strong><small>{{ movement.equipment_type }}</small></td>
+      <td>{{ movement.brand }}<small>{{ movement.model|default:'—' }}</small></td><td>{{ movement.serial }}<small>{{ movement.year|default:'—' }}</small></td>
+      <td>{{ movement.movement_date|date:'d/m/Y' }}</td><td>{{ movement.request_letter.correlative }}</td><td>{{ movement.response_letter.correlative|default:'—' }}</td>
+      <td><span class="status {% if movement.status == 'AUTHORIZED' %}status-observed{% else %}status-pending{% endif %}">{{ movement.get_status_display }}</span></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
 {% endblock %}

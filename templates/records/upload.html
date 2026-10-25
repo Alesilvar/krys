@@ -22,7 +22,7 @@
 
 {% if preview %}
 <section class="panel preview-panel">
-  <div class="panel-heading"><div><span class="eyebrow">Vista previa</span><h2>Revisa antes de guardar</h2></div><span class="count-pill">{{ preview.rows|length }} filas</span></div>
+  <div class="panel-heading"><div><span class="eyebrow">Vista previa</span><h2>Revisa antes de guardar</h2></div><span class="count-pill">{{ preview.rows|length }} presentaciones · {{ preview.movement_rows|length }} movimientos</span></div>
   {% if preview.warnings %}<div class="warning-box"><strong>Advertencias</strong>{% for warning in preview.warnings %}<p>{{ warning }}</p>{% endfor %}</div>{% endif %}
   <form method="post" action="{% url 'confirm_upload' %}">
     {% csrf_token %}
@@ -31,7 +31,7 @@
         <label>Fecha de recepción · CPC {{ doc.correlative }}<input type="date" name="reception_{{ doc.correlative }}" required></label>
       {% endif %}{% endfor %}
     </div>
-    <div class="table-wrap">
+    {% if preview.rows %}<div class="table-wrap">
       <table class="preview-table">
         <thead><tr><th>CPC</th><th>Fecha</th><th>Trámite</th><th>Equipo</th><th>Código</th><th>Resultado</th><th>Detalle</th><th>AAM</th><th>Dato adicional</th></tr></thead>
         <tbody>{% for row in preview.rows %}<tr>
@@ -41,8 +41,21 @@
           <td><textarea name="additional_{{ row.row_index }}" rows="2" aria-label="Dato adicional para {{ row.equipment_code }}"></textarea></td>
         </tr>{% endfor %}</tbody>
       </table>
+    </div>{% endif %}
+    {% if preview.movement_rows %}
+    <div class="panel-heading"><div><span class="eyebrow">Movimientos</span><h2>Desmovilización</h2></div></div>
+    <div class="table-wrap">
+      <table class="preview-table">
+        <thead><tr><th>CPC</th><th>Equipo</th><th>Marca / modelo</th><th>Serie / año</th><th>Fecha de salida</th><th>Estado</th><th>AAM</th></tr></thead>
+        <tbody>{% for row in preview.movement_rows %}<tr>
+          <td>{{ row.request_correlative }}</td><td><strong>{{ row.equipment_code }}</strong><small>{{ row.equipment_type }}</small></td>
+          <td>{{ row.brand }}<small>{{ row.model|default:'—' }}</small></td><td>{{ row.serial }}<small>{{ row.year }}</small></td>
+          <td>{{ row.movement_date }}</td><td><span class="status status-approved">{{ row.status }}</span></td><td>{{ row.response_correlative|default:'—' }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
     </div>
-    <div class="confirm-bar"><span>Confirma que los datos coinciden con las cartas.</span><button class="button button-primary" type="submit">Guardar {{ preview.rows|length }} filas</button></div>
+    {% endif %}
+    <div class="confirm-bar"><span>Confirma que los datos coinciden con las cartas.</span><button class="button button-primary" type="submit">Guardar datos</button></div>
   </form>
 </section>
 {% endif %}

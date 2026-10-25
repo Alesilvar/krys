@@ -7,7 +7,14 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import AuditEvent, Equipment, Evaluation, Letter, Presentation
+from .models import (
+    AuditEvent,
+    Equipment,
+    EquipmentMovement,
+    Evaluation,
+    Letter,
+    Presentation,
+)
 from .services import persist_preview, prepare_preview
 
 
@@ -158,6 +165,10 @@ class TestPdfImport(TestCase):
         path = SAMPLES / name
         return SimpleUploadedFile(name, path.read_bytes(), content_type="application/pdf")
 
+    def upload_example(self, name):
+        path = SAMPLES / "ejemplo-cuarta" / name
+        return SimpleUploadedFile(name, path.read_bytes(), content_type="application/pdf")
+
     def test_real_pdf_pair_previews_and_persists_two_rows(self):
         preview = prepare_preview(
             [
@@ -195,3 +206,83 @@ class TestPdfImport(TestCase):
         )
         persist_preview(second, {"reception_190": "2026-04-22"}, self.user)
         self.assertEqual(Presentation.objects.count(), 4)
+
+    def test_flexible_document_chain_previews_and_persists(self):
+        names = [
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0230.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0171.pdf",
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0249.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0191.pdf",
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0425.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0585.pdf",
+        ]
+        preview = prepare_preview([self.upload_example(name) for name in names])
+
+        self.assertEqual(len(preview["rows"]), 24)
+        self.assertEqual(preview["warnings"], [])
+        self.assertEqual(
+            sum(row["result"] == "Observado-No conforme" for row in preview["rows"]),
+            6,
+        )
+
+        persist_preview(
+            preview,
+            {
+                "reception_230": "2026-05-13",
+                "reception_249": "2026-05-19",
+                "reception_425": "2026-07-30",
+            },
+            self.user,
+        )
+        self.assertEqual(Letter.objects.count(), 6)
+        self.assertEqual(Presentation.objects.count(), 24)
+        self.assertEqual(Evaluation.objects.count(), 24)
+
+    def test_approved_equipment_can_later_be_retired(self):
+        presentation_names = [
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0230.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0171.pdf",
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0249.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0191.pdf",
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0425.pdf",
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0585.pdf",
+        ]
+        presentation_preview = prepare_preview(
+            [self.upload_example(name) for name in presentation_names]
+        )
+        persist_preview(
+            presentation_preview,
+            {
+                "reception_230": "2026-05-13",
+                "reception_249": "2026-05-19",
+                "reception_425": "2026-07-30",
+            },
+            self.user,
+        )
+
+        movement_preview = prepare_preview(
+            [
+                self.upload_example(
+                    "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0516-desmovilización 16 volquetes.pdf"
+                ),
+                self.upload_example("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0505.pdf"),
+            ]
+        )
+        self.assertEqual(movement_preview["rows"], [])
+        self.assertEqual(len(movement_preview["movement_rows"]), 16)
+        persist_preview(movement_preview, {"reception_516": "2026-09-02"}, self.user)
+
+        equipment = Equipment.objects.get(code="CET-756")
+        approved = Presentation.objects.filter(
+            equipment=equipment,
+            evaluation__result=Evaluation.Result.APPROVED,
+        ).exists()
+        self.assertTrue(approved)
+        self.assertEqual(
+            equipment.operational_status, Equipment.OperationalStatus.RETIRED
+        )
+        self.assertEqual(equipment.retired_at, date(2026, 9, 2))
+        movement = EquipmentMovement.objects.get(equipment=equipment)
+        self.assertEqual(movement.status, EquipmentMovement.Status.AUTHORIZED)
+        self.assertEqual(movement.response_letter.correlative, 505)
+        self.assertEqual(EquipmentMovement.objects.count(), 16)

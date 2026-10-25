@@ -14,12 +14,22 @@ class Letter(models.Model):
         PDF = "PDF", "Extraída de PDF"
         MANUAL = "MANUAL", "Ingreso manual"
 
+    class Purpose(models.TextChoices):
+        PRESENTATION = "PRESENTATION", "Ingreso o subsanación"
+        DEMOBILIZATION = "DEMOBILIZATION", "Desmovilización"
+
     full_number = models.CharField("número completo", max_length=80, unique=True)
     correlative = models.PositiveIntegerField("correlativo")
     direction = models.CharField("dirección", max_length=12, choices=Direction.choices)
     letter_date = models.DateField("fecha de carta")
     reception_date = models.DateField("fecha de recepción", null=True, blank=True)
     source = models.CharField(max_length=10, choices=Source.choices, default=Source.PDF)
+    purpose = models.CharField(
+        "propósito",
+        max_length=20,
+        choices=Purpose.choices,
+        default=Purpose.PRESENTATION,
+    )
     pdf = models.FileField(upload_to="letters/%Y/%m/", null=True, blank=True)
     response_to = models.OneToOneField(
         "self",
@@ -57,7 +67,18 @@ class Letter(models.Model):
 
 
 class Equipment(models.Model):
+    class OperationalStatus(models.TextChoices):
+        ACTIVE = "ACTIVE", "Activo"
+        RETIRED = "RETIRED", "Retirado"
+
     code = models.CharField("placa o código", max_length=40, unique=True)
+    operational_status = models.CharField(
+        "estado operativo",
+        max_length=10,
+        choices=OperationalStatus.choices,
+        default=OperationalStatus.ACTIVE,
+    )
+    retired_at = models.DateField("fecha de retiro", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -151,6 +172,53 @@ class Evaluation(models.Model):
     detail = models.TextField()
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class EquipmentMovement(models.Model):
+    class MovementType(models.TextChoices):
+        DEMOBILIZATION = "DEMOBILIZATION", "Desmovilización"
+
+    class Status(models.TextChoices):
+        REQUESTED = "REQUESTED", "Retiro solicitado"
+        AUTHORIZED = "AUTHORIZED", "Retirado"
+
+    equipment = models.ForeignKey(
+        Equipment, on_delete=models.PROTECT, related_name="movements"
+    )
+    request_letter = models.ForeignKey(
+        Letter, on_delete=models.CASCADE, related_name="requested_movements"
+    )
+    response_letter = models.ForeignKey(
+        Letter,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="authorized_movements",
+    )
+    movement_type = models.CharField(
+        max_length=20,
+        choices=MovementType.choices,
+        default=MovementType.DEMOBILIZATION,
+    )
+    status = models.CharField(max_length=12, choices=Status.choices)
+    movement_date = models.DateField("fecha de salida")
+    equipment_type = models.CharField("tipo de equipo", max_length=100)
+    brand = models.CharField("marca", max_length=80, blank=True)
+    model = models.CharField("modelo", max_length=120, blank=True)
+    serial = models.CharField("serie", max_length=120, blank=True)
+    year = models.PositiveIntegerField("año", null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["request_letter", "equipment"],
+                name="unique_equipment_per_movement_request",
+            )
+        ]
+        ordering = ["movement_date", "created_at"]
 
 
 class ProcessingWarning(models.Model):

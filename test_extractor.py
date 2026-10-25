@@ -9,6 +9,9 @@ from extractor import (
     ParsedResponse,
     build_rows,
     extract_documents,
+    extract_pdf_text,
+    parse_demobilization_request,
+    parse_demobilization_response,
 )
 
 
@@ -32,6 +35,21 @@ SUBSANATION_PDFS = [
     sample("PSR2-F2-CPC-AAM-GEN-GLB-CAR-0190.pdf"),
     sample("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0136.pdf"),
 ]
+FLEXIBLE_FORMAT_PDFS = [
+    ROOT / "ejemplo-cuarta/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0230.pdf",
+    ROOT / "ejemplo-cuarta/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0171.pdf",
+    ROOT / "ejemplo-cuarta/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0249.pdf",
+    ROOT / "ejemplo-cuarta/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0191.pdf",
+    ROOT / "ejemplo-cuarta/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0425.pdf",
+    ROOT / "ejemplo-cuarta/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0585.pdf",
+]
+DEMOBILIZATION_REQUEST = (
+    ROOT
+    / "ejemplo-cuarta/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0516-desmovilización 16 volquetes.pdf"
+)
+DEMOBILIZATION_RESPONSE = (
+    ROOT / "ejemplo-cuarta/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0505.pdf"
+)
 
 
 class RealDocumentExtractionTests(unittest.TestCase):
@@ -261,6 +279,79 @@ class SubsanationDocumentTests(unittest.TestCase):
             by_code[(102, "NEW-200")].procedure_type, "Primera presentación"
         )
         self.assertEqual(warnings, [])
+
+
+class FlexibleDocumentFormatTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        missing = [str(path) for path in FLEXIBLE_FORMAT_PDFS if not path.is_file()]
+        if missing:
+            raise unittest.SkipTest("Faltan PDF de formatos flexibles: " + ", ".join(missing))
+        cls.rows, cls.warnings = extract_documents(FLEXIBLE_FORMAT_PDFS)
+        cls.by_key = {
+            (row.cpc_correlative, row.equipment_code): row for row in cls.rows
+        }
+
+    def test_extracts_complete_first_and_followup_presentations(self):
+        counts = {
+            correlative: sum(row.cpc_correlative == correlative for row in self.rows)
+            for correlative in (230, 249, 425)
+        }
+        self.assertEqual(counts, {230: 14, 249: 6, 425: 4})
+        self.assertIn((230, "BHK713"), self.by_key)
+        self.assertEqual(self.by_key[(230, "BVL-812")].equipment_type, "Camioneta")
+        self.assertEqual(self.by_key[(230, "CAY-928")].equipment_type, "Camión grúa")
+
+    def test_individual_observations_and_implicit_approvals(self):
+        observed = {"BVL-812", "D4J-868", "CET-756", "CEK-912", "CDR-725", "CET-757"}
+        for row in (item for item in self.rows if item.cpc_correlative == 230):
+            expected = "Observado-No conforme" if row.equipment_code in observed else "Aprobado"
+            with self.subTest(code=row.equipment_code):
+                self.assertEqual(row.result, expected)
+        self.assertIn("programa de mantenimiento", self.by_key[(230, "CDR-725")].detail.lower())
+        self.assertNotIn("CONSORCIO", self.by_key[(230, "CET-757")].detail)
+
+    def test_blanket_and_explicit_followup_approvals(self):
+        for correlative in (249, 425):
+            for row in (item for item in self.rows if item.cpc_correlative == correlative):
+                with self.subTest(correlative=correlative, code=row.equipment_code):
+                    self.assertEqual(row.result, "Aprobado")
+                    self.assertEqual(row.detail, "Aprobado")
+                    self.assertEqual(row.procedure_type, "Segunda presentación")
+
+    def test_generic_followup_types_are_inherited(self):
+        self.assertEqual(self.by_key[(425, "BVL-812")].equipment_type, "Camioneta")
+        for code in ("CET-756", "CDR-725", "CET-757"):
+            self.assertEqual(self.by_key[(425, code)].equipment_type, "Volquete")
+
+    def test_flexible_documents_have_no_warnings(self):
+        self.assertEqual(self.warnings, [])
+
+
+class DemobilizationExtractionTests(unittest.TestCase):
+    def test_extracts_sixteen_movement_rows_with_technical_data(self):
+        parsed = parse_demobilization_request(
+            extract_pdf_text(DEMOBILIZATION_REQUEST), DEMOBILIZATION_REQUEST, 0
+        )
+        self.assertEqual(len(parsed.items), 16)
+        by_code = {item.code: item for item in parsed.items}
+        self.assertEqual(by_code["CET-756"].brand, "SHACMAN")
+        self.assertEqual(by_code["CET-756"].model, "SX331862306C")
+        self.assertEqual(by_code["CET-756"].serial, "LZGJR4Z67SX033296")
+        self.assertEqual(by_code["CET-756"].departure_date, date(2026, 9, 2))
+        self.assertEqual(by_code["BWK-844"].brand, "FAW")
+
+    def test_response_authorizes_the_same_sixteen_plates(self):
+        request = parse_demobilization_request(
+            extract_pdf_text(DEMOBILIZATION_REQUEST), DEMOBILIZATION_REQUEST, 0
+        )
+        response = parse_demobilization_response(
+            extract_pdf_text(DEMOBILIZATION_RESPONSE), DEMOBILIZATION_RESPONSE, 1
+        )
+        self.assertEqual(
+            set(response.equipment_codes), {item.code for item in request.items}
+        )
+        self.assertEqual(response.letter.referenced_cpc, request.letter.full_number)
 
 
 if __name__ == "__main__":

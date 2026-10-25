@@ -22,6 +22,8 @@ EXPORT_HEADERS = [
     "N° Correlativo Carta Respuesta AAM",
     "Fecha de carta AAM",
     "Dato adicional",
+    "Estado operativo",
+    "Fecha de retiro",
 ]
 
 
@@ -50,6 +52,10 @@ def presentation_values(presentation):
         response.correlative if response else "",
         response.letter_date.strftime("%d/%m/%Y") if response else "",
         presentation.additional_data,
+        presentation.equipment.get_operational_status_display(),
+        presentation.equipment.retired_at.strftime("%d/%m/%Y")
+        if presentation.equipment.retired_at
+        else "",
     ]
 
 

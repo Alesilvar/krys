@@ -28,9 +28,13 @@ REFERENCE_RE = re.compile(
     r"(PSR2-F2-CPC-AAM-GEN-GLB-CAR-\d+)",
     re.IGNORECASE,
 )
-CODE_RE = r"[A-Z0-9]{2,}(?:-[A-Z0-9]{2,})+"
+CODE_RE = (
+    r"(?:[A-Z0-9]{2,}(?:-[A-Z0-9]{2,})+|"
+    r"(?=[A-Z0-9]{5,12}\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]+)"
+)
 EQUIPMENT_TYPE_RE = (
-    r"Excavadora|Retroexcavadora|Volquete|Camión\s+Volquete|"
+    r"Excavadora|Retroexcavadora|Camioneta|Camión\s+grúa|"
+    r"Volquete|Camión\s+Volquete|"
     r"Cisterna\s+de\s+(?:Combustible|Agua)"
 )
 MONTHS = {
@@ -84,7 +88,32 @@ class Evaluation:
 class ParsedResponse:
     letter: Letter
     evaluations: dict[str, Evaluation]
+    default_result: str = ""
+    default_detail: str = ""
     response_only_codes: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class DemobilizationItem:
+    code: str
+    equipment_type: str
+    brand: str
+    model: str
+    serial: str
+    year: int
+    departure_date: date
+
+
+@dataclass
+class ParsedDemobilizationRequest:
+    letter: Letter
+    items: list[DemobilizationItem]
+
+
+@dataclass
+class ParsedDemobilizationResponse:
+    letter: Letter
+    equipment_codes: list[str]
 
 
 @dataclass(frozen=True)
@@ -101,6 +130,20 @@ class OutputRow:
     aam_correlative: int | str
     aam_date: date | str
     additional_data: str
+
+
+@dataclass(frozen=True)
+class OutputMovementRow:
+    request_correlative: int
+    response_correlative: int | str
+    equipment_code: str
+    equipment_type: str
+    brand: str
+    model: str
+    serial: str
+    year: int
+    movement_date: date
+    status: str
 
 
 def extract_pdf_text(path: Path) -> str:
@@ -136,6 +179,11 @@ def normalized_for_matching(value: str) -> str:
 
 def normalize_code(value: str) -> str:
     return re.sub(r"\s+", "", value).upper()
+
+
+def is_demobilization(text: str) -> bool:
+    normalized = normalized_for_matching(text)
+    return "desmovilizacion" in normalized or "desafectadas del proyecto" in normalized
 
 
 def parse_spanish_date(text: str) -> date:
@@ -190,17 +238,13 @@ def parse_cpc(text: str, path: Path, source_order: int) -> Letter:
             # subsanacion. Las menciones narrativas del cuerpo no se usan.
             letter.referenced_aam = aam_reference.group(0).upper()
 
-    section = re.search(
-        r"El detalle de los equipos considerados es el siguiente:\s*(.*?)\s*Asimismo,",
-        text,
-        re.IGNORECASE | re.DOTALL,
-    )
+    section = find_equipment_list_section(text)
     if section:
         equipment_pattern = re.compile(
             rf"^\s*\d+\.\s+(.+?)\s+({CODE_RE})[,.;]?\s*$",
-            re.MULTILINE,
+            re.MULTILINE | re.IGNORECASE,
         )
-        for match in equipment_pattern.finditer(section.group(1)):
+        for match in equipment_pattern.finditer(section):
             letter.equipment.append(
                 Equipment(
                     code=normalize_code(match.group(2)),
@@ -213,15 +257,109 @@ def parse_cpc(text: str, path: Path, source_order: int) -> Letter:
         letter.equipment.extend(extract_typed_equipment(text))
 
     if not letter.equipment:
+        letter.equipment.extend(extract_generic_equipment(text))
+
+    if not letter.equipment:
         raise ExtractionError(f"No se extrajo ningun equipo de {path.name}")
     return letter
+
+
+def parse_demobilization_request(
+    text: str, path: Path, source_order: int
+) -> ParsedDemobilizationRequest:
+    letter = parse_letter_identity(text, path, source_order)
+    if letter.direction != "CPC_AAM" or not is_demobilization(text):
+        raise ExtractionError(f"{path.name} no es una solicitud de desmovilizacion")
+
+    items: list[DemobilizationItem] = []
+    row_pattern = re.compile(
+        rf"^\s*DE\s{{2,}}([A-Z]+)\s{{2,}}(.+?)\s{{2,}}(\d{{4}})\s+"
+        rf"({CODE_RE})\s+(\d{{1,2}}-[A-Za-z]{{3}}-\d{{2,4}})\s*$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    month_numbers = {
+        "ene": 1,
+        "feb": 2,
+        "mar": 3,
+        "abr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "ago": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dic": 12,
+    }
+    for match in row_pattern.finditer(text):
+        middle = re.split(r"\s{2,}", match.group(2).strip())
+        if len(middle) == 1:
+            model, serial = "", middle[0]
+        else:
+            model, serial = " ".join(middle[:-1]), middle[-1]
+        day, month_name, short_year = match.group(5).split("-")
+        month = month_numbers.get(normalized_for_matching(month_name)[:3])
+        if month is None:
+            raise ExtractionError(f"Mes de salida no reconocido: {month_name}")
+        year = int(short_year)
+        if year < 100:
+            year += 2000
+        items.append(
+            DemobilizationItem(
+                code=normalize_code(match.group(4)),
+                equipment_type="Camión Volquete",
+                brand=match.group(1).upper(),
+                model=normalize_space(model),
+                serial=normalize_space(serial),
+                year=int(match.group(3)),
+                departure_date=date(year, month, int(day)),
+            )
+        )
+    declared = re.search(r"diecis[eé]is\s*\(16\)", text, re.IGNORECASE)
+    if not items or (declared and len(items) != 16):
+        raise ExtractionError(
+            f"Se esperaban 16 equipos de desmovilizacion en {path.name} y se extrajeron {len(items)}"
+        )
+    return ParsedDemobilizationRequest(letter=letter, items=items)
+
+
+def parse_demobilization_response(
+    text: str, path: Path, source_order: int
+) -> ParsedDemobilizationResponse:
+    letter = parse_letter_identity(text, path, source_order)
+    if letter.direction != "AAM_CPC" or not is_demobilization(text):
+        raise ExtractionError(f"{path.name} no es una conformidad de desmovilizacion")
+    reference = REFERENCE_RE.search(text)
+    if not reference:
+        raise ExtractionError(f"No se encontro la carta CPC referenciada en {path.name}")
+    letter.referenced_cpc = reference.group(1).upper()
+    codes = []
+    for match in re.finditer(rf"\bPLACA:\s*({CODE_RE})\b", text, re.IGNORECASE):
+        code = normalize_code(match.group(1))
+        if code not in codes:
+            codes.append(code)
+    normalized = normalized_for_matching(text)
+    if "conformidad para el retiro" not in normalized or not codes:
+        raise ExtractionError(f"No se extrajo la conformidad de retiro de {path.name}")
+    return ParsedDemobilizationResponse(letter=letter, equipment_codes=codes)
+
+
+def find_equipment_list_section(text: str) -> str | None:
+    """Return a numbered equipment list without depending on one exact sentence."""
+    match = re.search(
+        r"(?:detalle|relaci[oó]n)\s+de\s+los\s+equipos[^:]{0,160}:\s*(.*?)"
+        r"(?=\n\s*(?:Asimismo|Adjuntos?|Por lo expuesto|Sin otro particular)\b)",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    return match.group(1) if match else None
 
 
 def extract_typed_equipment(text: str) -> list[Equipment]:
     found: list[Equipment] = []
     seen_codes: set[str] = set()
     pattern = re.compile(
-        rf"\b({EQUIPMENT_TYPE_RE})\s+({CODE_RE})\b",
+        rf"\b({EQUIPMENT_TYPE_RE})\s+(?:de\s+placa\s+|placa\s+|placa:\s*)?({CODE_RE})\b",
         re.IGNORECASE,
     )
     for match in pattern.finditer(text):
@@ -238,11 +376,29 @@ def extract_typed_equipment(text: str) -> list[Equipment]:
     return found
 
 
+def extract_generic_equipment(text: str) -> list[Equipment]:
+    """Extract follow-up items that identify only an equipment plate."""
+    found: list[Equipment] = []
+    seen_codes: set[str] = set()
+    pattern = re.compile(
+        rf"\bEquipo\s+de\s+placa\s+({CODE_RE})\b",
+        re.IGNORECASE,
+    )
+    for match in pattern.finditer(text):
+        code = normalize_code(match.group(1))
+        if code not in seen_codes:
+            seen_codes.add(code)
+            found.append(Equipment(code=code, equipment_type="Equipo"))
+    return found
+
+
 def canonical_equipment_type(value: str) -> str:
     key = normalized_for_matching(value)
     names = {
         "excavadora": "Excavadora",
         "retroexcavadora": "Retroexcavadora",
+        "camioneta": "Camioneta",
+        "camion grua": "Camión grúa",
         "volquete": "Volquete",
         "camion volquete": "Camión Volquete",
         "cisterna de combustible": "Cisterna de Combustible",
@@ -261,16 +417,117 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
         raise ExtractionError(f"No se encontro la carta CPC referenciada en {path.name}")
     letter.referenced_cpc = reference.group(1).upper()
 
+    default_result = ""
+    default_detail = ""
     if re.search(r"^\s*\d+\.\s+Equipos?:", text, re.MULTILINE | re.IGNORECASE):
         evaluations = parse_grouped_response(text)
     else:
         evaluations = parse_prose_response(text, letter.letter_date.year)
         if not evaluations:
             evaluations = parse_lifted_observations_response(text)
+        if not evaluations:
+            evaluations = parse_individual_observations_response(text)
+        if not evaluations:
+            evaluations = parse_explicit_approvals_response(text)
 
-    if not evaluations:
+    normalized = normalized_for_matching(text)
+    if is_blanket_approval(normalized):
+        default_result = "Aprobado"
+        default_detail = "Aprobado"
+    elif evaluations and is_unlisted_equipment_approved(normalized):
+        default_result = "Aprobado"
+        default_detail = "Aprobado"
+
+    if not evaluations and not default_result:
         raise ExtractionError(f"No se extrajeron evaluaciones de {path.name}")
-    return ParsedResponse(letter=letter, evaluations=evaluations)
+    return ParsedResponse(
+        letter=letter,
+        evaluations=evaluations,
+        default_result=default_result,
+        default_detail=default_detail,
+    )
+
+
+def parse_individual_observations_response(text: str) -> dict[str, Evaluation]:
+    """Parse bullets such as 'Volquete placa ABC-123: observation detail'."""
+    evaluations: dict[str, Evaluation] = {}
+    observations_section = re.search(
+        r"^\s*1\.\s+Equipos?\s+con\s+Observaciones?:\s*(.*?)"
+        r"(?=^\s*2\.\s+|\Z)",
+        text,
+        re.MULTILINE | re.IGNORECASE | re.DOTALL,
+    )
+    source = observations_section.group(1) if observations_section else text
+    starts = list(
+        re.finditer(
+            rf"^\s*[•]\s*(?:{EQUIPMENT_TYPE_RE})\s+(?:de\s+)?placa\s+"
+            rf"({CODE_RE})\b[^:]*:\s*",
+            source,
+            re.MULTILINE | re.IGNORECASE,
+        )
+    )
+    for index, start in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(source)
+        segment = source[start.end() : end]
+        segment = segment.split("\f", 1)[0]
+        segment = re.split(
+            r"^\s*\d+\s*/\s*\d+\s*$|^\s*CONSORCIO\b",
+            segment,
+            maxsplit=1,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )[0]
+        segment = re.split(
+            r"\n\s*(?:\d+\.\s+|En virtud|Para el resto|Sin otro particular)",
+            segment,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0]
+        detail = normalize_space(segment)
+        code = normalize_code(start.group(1))
+        if detail:
+            evaluations[code] = Evaluation(code, "Observado-No conforme", detail)
+    return evaluations
+
+
+def parse_explicit_approvals_response(text: str) -> dict[str, Evaluation]:
+    """Parse approval bullets which enumerate plates but omit equipment types."""
+    evaluations: dict[str, Evaluation] = {}
+    pattern = re.compile(
+        rf"\bEquipo\s+de\s+placa\s+({CODE_RE})\s*:\s*"
+        r"(?:observaci[oó]n\s+)?(?:subsanada|levantada)",
+        re.IGNORECASE,
+    )
+    for match in pattern.finditer(text):
+        code = normalize_code(match.group(1))
+        evaluations[code] = Evaluation(code, "Aprobado", "Aprobado")
+    return evaluations
+
+
+def is_blanket_approval(normalized_text: str) -> bool:
+    approval = any(
+        phrase in normalized_text
+        for phrase in (
+            "se da conformidad de la documentacion presentada",
+            "se da conformidad a la documentacion presentada",
+            "documentacion remitida atiende satisfactoriamente",
+        )
+    )
+    authorization = bool(
+        re.search(
+            r"(?:autoriza|autorizandose)\s+(?:el|su)\s+ingreso",
+            normalized_text,
+        )
+    )
+    return approval and authorization
+
+
+def is_unlisted_equipment_approved(normalized_text: str) -> bool:
+    return bool(
+        re.search(
+            r"se\s+autoriza\s+unicamente\s+el\s+ingreso\s+de\s+las\s+unidades\s+que\s+cumplen",
+            normalized_text,
+        )
+    )
 
 
 def parse_grouped_response(text: str) -> dict[str, Evaluation]:
@@ -483,11 +740,35 @@ def build_rows(
                     f"{cpc.referenced_aam}.",
                 )
             evaluation = response.evaluations.get(item.code) if response else None
+            if response and evaluation is None and response.default_result:
+                evaluation = Evaluation(
+                    item.code,
+                    response.default_result,
+                    response.default_detail,
+                )
             if response and evaluation is None:
                 warn_once(
                     f"missing:{response.letter.full_number}:{item.code}",
                     f"{response.letter.full_number}: no se encontro evaluacion para {item.code}.",
                 )
+            equipment_type = item.equipment_type
+            if equipment_type == "Equipo" and cpc.referenced_aam:
+                previous_response = response_by_number.get(cpc.referenced_aam)
+                previous_cpc = (
+                    cpc_by_number.get(previous_response.letter.referenced_cpc)
+                    if previous_response and previous_response.letter.referenced_cpc
+                    else None
+                )
+                previous_item = next(
+                    (
+                        candidate
+                        for candidate in (previous_cpc.equipment if previous_cpc else [])
+                        if candidate.code == item.code
+                    ),
+                    None,
+                )
+                if previous_item:
+                    equipment_type = previous_item.equipment_type
             rows.append(
                 OutputRow(
                     owner="CPC",
@@ -495,7 +776,7 @@ def build_rows(
                     cpc_date=cpc.letter_date,
                     reception_date="",
                     procedure_type=ordinal_word(order) if order is not None else "No calculado",
-                    equipment_type=item.equipment_type,
+                    equipment_type=equipment_type,
                     equipment_code=item.code,
                     result=evaluation.result if evaluation else "",
                     detail=evaluation.detail if evaluation else "",
@@ -554,6 +835,8 @@ def extract_documents(paths: list[Path]) -> tuple[list[OutputRow], list[str]]:
 
     for source_order, path in enumerate(paths):
         text = extract_pdf_text(path)
+        if is_demobilization(text):
+            continue
         identity = parse_letter_identity(text, path, source_order)
         if identity.full_number in seen_numbers:
             raise ExtractionError(f"Numero de carta duplicado: {identity.full_number}")
@@ -573,6 +856,85 @@ def extract_documents(paths: list[Path]) -> tuple[list[OutputRow], list[str]]:
     return build_rows(cpc_letters, responses)
 
 
+def extract_demobilization_documents(paths: list[Path]) -> list[OutputMovementRow]:
+    requests: dict[str, ParsedDemobilizationRequest] = {}
+    responses: dict[str, ParsedDemobilizationResponse] = {}
+    for source_order, path in enumerate(paths):
+        text = extract_pdf_text(path)
+        if not is_demobilization(text):
+            continue
+        identity = parse_letter_identity(text, path, source_order)
+        if identity.direction == "CPC_AAM":
+            request = parse_demobilization_request(text, path, source_order)
+            requests[request.letter.full_number] = request
+        else:
+            response = parse_demobilization_response(text, path, source_order)
+            responses[response.letter.referenced_cpc] = response
+
+    rows: list[OutputMovementRow] = []
+    for request_number, request in requests.items():
+        response = responses.get(request_number)
+        request_codes = {item.code for item in request.items}
+        if response and set(response.equipment_codes) != request_codes:
+            raise ExtractionError(
+                f"{response.letter.full_number} no contiene las mismas placas que "
+                f"{request_number}"
+            )
+        for item in request.items:
+            rows.append(
+                OutputMovementRow(
+                    request_correlative=request.letter.correlative,
+                    response_correlative=response.letter.correlative if response else "",
+                    equipment_code=item.code,
+                    equipment_type=item.equipment_type,
+                    brand=item.brand,
+                    model=item.model,
+                    serial=item.serial,
+                    year=item.year,
+                    movement_date=item.departure_date,
+                    status="Retirado" if response else "Retiro solicitado",
+                )
+            )
+    missing_requests = sorted(set(responses) - set(requests))
+    if missing_requests:
+        raise ExtractionError(
+            "Faltan las solicitudes de desmovilizacion: " + ", ".join(missing_requests)
+        )
+    return rows
+
+
+def movement_markdown_table(rows: Iterable[OutputMovementRow]) -> str:
+    headers = [
+        "Carta CPC",
+        "Carta AAM",
+        "Equipo",
+        "Tipo",
+        "Marca",
+        "Modelo",
+        "Serie",
+        "Año",
+        "Fecha de salida",
+        "Estado",
+    ]
+    body = []
+    for row in rows:
+        values = [
+            row.request_correlative,
+            row.response_correlative,
+            row.equipment_code,
+            row.equipment_type,
+            row.brand,
+            row.model,
+            row.serial,
+            row.year,
+            format_date(row.movement_date),
+            row.status,
+        ]
+        body.append("| " + " | ".join(str(value) for value in values) + " |")
+    separator = "| " + " | ".join(["---"] * len(headers)) + " |"
+    return "\n".join(["| " + " | ".join(headers) + " |", separator, *body])
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Extrae cartas CPC/AAM y muestra una tabla de evaluaciones."
@@ -582,11 +944,17 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         rows, warnings = extract_documents(args.pdf)
+        movement_rows = extract_demobilization_documents(args.pdf)
     except ExtractionError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    print(markdown_table(rows))
+    if rows:
+        print(markdown_table(rows))
+    if movement_rows:
+        if rows:
+            print("\nDesmovilizaciones:\n")
+        print(movement_markdown_table(movement_rows))
     if warnings:
         print("\nAdvertencias:")
         for warning in warnings:

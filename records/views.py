@@ -14,18 +14,20 @@ from extractor import ExtractionError
 from .exports import EXPORT_HEADERS, presentation_values, workbook_bytes
 from .forms import ManualRecordForm, PresentationEditForm, UploadLettersForm
 from .models import Letter, Presentation
-from .selectors import dashboard_metrics, filtered_presentations
+from .selectors import dashboard_metrics, demobilization_movements, filtered_presentations
 from .services import persist_preview, prepare_preview
 from .use_cases import create_manual_record, delete_cpc_letter, update_presentation
 
 
 @login_required
 def dashboard(request):
-    records, query, result = filtered_presentations(request.GET)
+    records, query, result, operational_status = filtered_presentations(request.GET)
     context = {
         "records": records,
         "query": query,
         "selected_result": result,
+        "selected_status": operational_status,
+        "movements": demobilization_movements(),
         **dashboard_metrics(),
     }
     return render(request, "records/dashboard.html", context)
@@ -128,7 +130,7 @@ def delete_letter(request, pk):
 
 @login_required
 def export_csv(request):
-    records, _, _ = filtered_presentations(request.GET)
+    records, _, _, _ = filtered_presentations(request.GET)
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="registros-krys.csv"'
     response.write("\ufeff")
@@ -141,7 +143,7 @@ def export_csv(request):
 
 @login_required
 def export_xlsx(request):
-    records, _, _ = filtered_presentations(request.GET)
+    records, _, _, _ = filtered_presentations(request.GET)
     response = HttpResponse(
         workbook_bytes(records),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

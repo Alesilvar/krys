@@ -16,12 +16,23 @@ from extractor import (
     ExtractionError,
     extract_documents,
     extract_pdf_text,
+    is_demobilization,
     parse_cpc,
+    parse_demobilization_request,
+    parse_demobilization_response,
     parse_letter_identity,
     parse_response,
 )
 
-from .models import AuditEvent, Equipment, Evaluation, Letter, Presentation, ProcessingWarning
+from .models import (
+    AuditEvent,
+    Equipment,
+    EquipmentMovement,
+    Evaluation,
+    Letter,
+    Presentation,
+    ProcessingWarning,
+)
 
 
 def prepare_preview(uploaded_files):
@@ -51,7 +62,34 @@ def prepare_preview(uploaded_files):
             if letter.pdf and default_storage.exists(letter.pdf.name)
         ]
         all_paths = [*existing_paths, *uploaded_paths]
-        rows, warnings = extract_documents(all_paths)
+        texts = {path: extract_pdf_text(path) for path in all_paths}
+        presentation_paths = [
+            path for path in all_paths if not is_demobilization(texts[path])
+        ]
+        rows, warnings = (
+            extract_documents(presentation_paths) if presentation_paths else ([], [])
+        )
+
+        demobilization_requests = {}
+        demobilization_responses = []
+        for source_order, path in enumerate(all_paths):
+            text = texts[path]
+            if not is_demobilization(text):
+                continue
+            identity = parse_letter_identity(text, path, source_order)
+            if identity.direction == "CPC_AAM":
+                request = parse_demobilization_request(text, path, source_order)
+                demobilization_requests[request.letter.full_number] = request
+            else:
+                demobilization_responses.append(
+                    parse_demobilization_response(text, path, source_order)
+                )
+        for response in demobilization_responses:
+            if response.letter.referenced_cpc not in demobilization_requests:
+                raise ExtractionError(
+                    f"{response.letter.full_number} referencia una solicitud de "
+                    f"desmovilizacion no proporcionada: {response.letter.referenced_cpc}"
+                )
 
         parsed_documents = []
         all_cpc_by_correlative = {}
@@ -59,10 +97,27 @@ def prepare_preview(uploaded_files):
         affected_cpc_numbers = set()
 
         for source_order, path in enumerate(all_paths):
-            text = extract_pdf_text(path)
+            text = texts[path]
             identity = parse_letter_identity(text, path, source_order)
             is_uploaded = path in uploaded_paths
-            if identity.direction == "CPC_AAM":
+            purpose = "DEMOBILIZATION" if is_demobilization(text) else "PRESENTATION"
+            if purpose == "DEMOBILIZATION" and identity.direction == "CPC_AAM":
+                parsed_request = demobilization_requests[identity.full_number]
+                parsed = parsed_request.letter
+                all_cpc_by_correlative[parsed.correlative] = parsed.full_number
+                if is_uploaded:
+                    affected_cpc_numbers.add(parsed.full_number)
+            elif purpose == "DEMOBILIZATION":
+                parsed_response = next(
+                    item
+                    for item in demobilization_responses
+                    if item.letter.full_number == identity.full_number
+                )
+                parsed = parsed_response.letter
+                all_aam_by_correlative[parsed.correlative] = parsed.full_number
+                if is_uploaded:
+                    affected_cpc_numbers.add(parsed.referenced_cpc)
+            elif identity.direction == "CPC_AAM":
                 parsed = parse_cpc(text, path, source_order)
                 all_cpc_by_correlative[parsed.correlative] = parsed.full_number
                 if is_uploaded:
@@ -85,6 +140,7 @@ def prepare_preview(uploaded_files):
                     "full_number": parsed.full_number,
                     "correlative": parsed.correlative,
                     "direction": parsed.direction,
+                    "purpose": purpose,
                     "letter_date": parsed.letter_date.isoformat(),
                     "referenced_cpc": parsed.referenced_cpc,
                     "referenced_aam": parsed.referenced_aam,
@@ -104,12 +160,47 @@ def prepare_preview(uploaded_files):
             data["row_index"] = index
             serialized_rows.append(data)
 
-        if not serialized_rows:
+        movement_rows = []
+        responses_by_request = {
+            item.letter.referenced_cpc: item for item in demobilization_responses
+        }
+        for request_number, request in demobilization_requests.items():
+            if request_number not in affected_cpc_numbers:
+                continue
+            response = responses_by_request.get(request_number)
+            request_codes = {item.code for item in request.items}
+            if response and set(response.equipment_codes) != request_codes:
+                missing = sorted(request_codes - set(response.equipment_codes))
+                extra = sorted(set(response.equipment_codes) - request_codes)
+                raise ExtractionError(
+                    "La conformidad de desmovilizacion no coincide con la solicitud. "
+                    f"Faltantes: {missing or 'ninguno'}; adicionales: {extra or 'ninguno'}."
+                )
+            for item in request.items:
+                movement_rows.append(
+                    {
+                        "request_full_number": request_number,
+                        "request_correlative": request.letter.correlative,
+                        "response_full_number": response.letter.full_number if response else "",
+                        "response_correlative": response.letter.correlative if response else "",
+                        "equipment_code": item.code,
+                        "equipment_type": item.equipment_type,
+                        "brand": item.brand,
+                        "model": item.model,
+                        "serial": item.serial,
+                        "year": item.year,
+                        "movement_date": item.departure_date.isoformat(),
+                        "status": "Retirado" if response else "Retiro solicitado",
+                    }
+                )
+
+        if not serialized_rows and not movement_rows:
             raise ExtractionError("No se generaron filas para las cartas cargadas.")
         return {
             "batch_id": batch_id,
             "documents": parsed_documents,
             "rows": serialized_rows,
+            "movement_rows": movement_rows,
             "warnings": warnings,
         }
     except Exception:
@@ -136,6 +227,7 @@ def persist_preview(preview, post_data, user):
                 full_number=document["full_number"],
                 correlative=document["correlative"],
                 direction=document["direction"],
+                purpose=document.get("purpose", Letter.Purpose.PRESENTATION),
                 letter_date=date.fromisoformat(document["letter_date"]),
                 reception_date=reception,
                 source=Letter.Source.PDF,
@@ -201,9 +293,47 @@ def persist_preview(preview, post_data, user):
                     },
                 )
 
-        warning_letter = next(iter(created_letters.values()))
-        for warning in preview["warnings"]:
-            ProcessingWarning.objects.create(letter=warning_letter, message=warning)
+        for row in preview.get("movement_rows", []):
+            request_letter = created_letters.get(
+                row["request_full_number"]
+            ) or Letter.objects.get(full_number=row["request_full_number"])
+            response_letter = None
+            if row["response_full_number"]:
+                response_letter = created_letters.get(
+                    row["response_full_number"]
+                ) or Letter.objects.get(full_number=row["response_full_number"])
+            equipment, _ = Equipment.objects.get_or_create(
+                code=row["equipment_code"].upper()
+            )
+            status = (
+                EquipmentMovement.Status.AUTHORIZED
+                if response_letter
+                else EquipmentMovement.Status.REQUESTED
+            )
+            EquipmentMovement.objects.update_or_create(
+                request_letter=request_letter,
+                equipment=equipment,
+                defaults={
+                    "response_letter": response_letter,
+                    "status": status,
+                    "movement_date": date.fromisoformat(row["movement_date"]),
+                    "equipment_type": row["equipment_type"],
+                    "brand": row["brand"],
+                    "model": row["model"],
+                    "serial": row["serial"],
+                    "year": row["year"],
+                    "created_by": user,
+                },
+            )
+            if response_letter:
+                equipment.operational_status = Equipment.OperationalStatus.RETIRED
+                equipment.retired_at = date.fromisoformat(row["movement_date"])
+                equipment.save(update_fields=["operational_status", "retired_at"])
+
+        if preview["warnings"]:
+            warning_letter = next(iter(created_letters.values()))
+            for warning in preview["warnings"]:
+                ProcessingWarning.objects.create(letter=warning_letter, message=warning)
 
         for letter in created_letters.values():
             AuditEvent.objects.create(

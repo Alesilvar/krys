@@ -6,7 +6,7 @@ dashboard. Las vistas solo traducen parametros HTTP a llamadas de lectura.
 
 from django.db.models import Q
 
-from .models import Evaluation, Letter, Presentation
+from .models import Equipment, EquipmentMovement, Evaluation, Letter, Presentation
 
 
 def filtered_presentations(params):
@@ -16,6 +16,7 @@ def filtered_presentations(params):
     )
     query = params.get("q", "").strip()
     result = params.get("result", "").strip()
+    operational_status = params.get("status", "").strip()
     if query:
         queryset = queryset.filter(
             Q(equipment__code__icontains=query)
@@ -25,7 +26,15 @@ def filtered_presentations(params):
         )
     if result:
         queryset = queryset.filter(evaluation__result=result)
-    return queryset, query, result
+    if operational_status:
+        queryset = queryset.filter(equipment__operational_status=operational_status)
+    return queryset, query, result, operational_status
+
+
+def demobilization_movements():
+    return EquipmentMovement.objects.select_related(
+        "equipment", "request_letter", "response_letter"
+    ).order_by("-movement_date", "equipment__code")
 
 
 def dashboard_metrics():
@@ -37,6 +46,9 @@ def dashboard_metrics():
         ).count(),
         "observed": Evaluation.objects.filter(
             result=Evaluation.Result.OBSERVED
+        ).count(),
+        "retired": Equipment.objects.filter(
+            operational_status=Equipment.OperationalStatus.RETIRED
         ).count(),
         "pending_letters": Letter.objects.filter(
             direction=Letter.Direction.CPC_AAM, response_letter__isnull=True
