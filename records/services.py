@@ -22,6 +22,7 @@ from extractor import (
     parse_demobilization_response,
     parse_letter_identity,
     parse_response,
+    validate_demobilization_pair,
 )
 
 from .models import (
@@ -168,14 +169,8 @@ def prepare_preview(uploaded_files):
             if request_number not in affected_cpc_numbers:
                 continue
             response = responses_by_request.get(request_number)
-            request_codes = {item.code for item in request.items}
-            if response and set(response.equipment_codes) != request_codes:
-                missing = sorted(request_codes - set(response.equipment_codes))
-                extra = sorted(set(response.equipment_codes) - request_codes)
-                raise ExtractionError(
-                    "La conformidad de desmovilizacion no coincide con la solicitud. "
-                    f"Faltantes: {missing or 'ninguno'}; adicionales: {extra or 'ninguno'}."
-                )
+            if response:
+                validate_demobilization_pair(request, response)
             for item in request.items:
                 movement_rows.append(
                     {

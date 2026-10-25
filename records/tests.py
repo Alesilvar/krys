@@ -7,6 +7,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from extractor import ExtractionError
+
 from .models import (
     AuditEvent,
     Equipment,
@@ -286,3 +288,80 @@ class TestPdfImport(TestCase):
         self.assertEqual(movement.status, EquipmentMovement.Status.AUTHORIZED)
         self.assertEqual(movement.response_letter.correlative, 505)
         self.assertEqual(EquipmentMovement.objects.count(), 16)
+
+    def test_demobilization_request_without_response_stays_requested(self):
+        preview = prepare_preview(
+            [
+                self.upload_example(
+                    "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0516-desmovilización 16 volquetes.pdf"
+                )
+            ]
+        )
+
+        self.assertEqual(preview["rows"], [])
+        self.assertEqual(len(preview["movement_rows"]), 16)
+        self.assertEqual(
+            {row["status"] for row in preview["movement_rows"]},
+            {"Retiro solicitado"},
+        )
+
+        persist_preview(preview, {"reception_516": "2026-09-02"}, self.user)
+
+        self.assertEqual(EquipmentMovement.objects.count(), 16)
+        self.assertFalse(
+            EquipmentMovement.objects.exclude(
+                status=EquipmentMovement.Status.REQUESTED,
+                response_letter=None,
+            ).exists()
+        )
+        self.assertFalse(
+            Equipment.objects.exclude(
+                operational_status=Equipment.OperationalStatus.ACTIVE,
+                retired_at=None,
+            ).exists()
+        )
+
+    def test_later_response_completes_requested_retirement(self):
+        request_preview = prepare_preview(
+            [
+                self.upload_example(
+                    "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0516-desmovilización 16 volquetes.pdf"
+                )
+            ]
+        )
+        persist_preview(
+            request_preview, {"reception_516": "2026-09-02"}, self.user
+        )
+
+        response_preview = prepare_preview(
+            [self.upload_example("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0505.pdf")]
+        )
+        self.assertEqual(len(response_preview["movement_rows"]), 16)
+        self.assertEqual(
+            {row["status"] for row in response_preview["movement_rows"]},
+            {"Retirado"},
+        )
+        persist_preview(response_preview, {}, self.user)
+
+        self.assertEqual(Letter.objects.count(), 2)
+        self.assertEqual(EquipmentMovement.objects.count(), 16)
+        self.assertFalse(
+            EquipmentMovement.objects.exclude(
+                status=EquipmentMovement.Status.AUTHORIZED,
+                response_letter__correlative=505,
+            ).exists()
+        )
+        self.assertFalse(
+            Equipment.objects.exclude(
+                operational_status=Equipment.OperationalStatus.RETIRED,
+                retired_at=date(2026, 9, 2),
+            ).exists()
+        )
+
+    def test_demobilization_response_before_request_is_rejected(self):
+        with self.assertRaisesRegex(
+            ExtractionError, "solicitud de desmovilizacion no proporcionada"
+        ):
+            prepare_preview(
+                [self.upload_example("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0505.pdf")]
+            )

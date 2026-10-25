@@ -5,13 +5,16 @@ from pathlib import Path
 from extractor import (
     Equipment,
     Evaluation,
+    ExtractionError,
     Letter,
+    ParsedDemobilizationResponse,
     ParsedResponse,
     build_rows,
     extract_documents,
     extract_pdf_text,
     parse_demobilization_request,
     parse_demobilization_response,
+    validate_demobilization_pair,
 )
 
 
@@ -352,6 +355,27 @@ class DemobilizationExtractionTests(unittest.TestCase):
             set(response.equipment_codes), {item.code for item in request.items}
         )
         self.assertEqual(response.letter.referenced_cpc, request.letter.full_number)
+
+    def test_rejects_response_with_missing_and_additional_plates(self):
+        request = parse_demobilization_request(
+            extract_pdf_text(DEMOBILIZATION_REQUEST), DEMOBILIZATION_REQUEST, 0
+        )
+        parsed_response = parse_demobilization_response(
+            extract_pdf_text(DEMOBILIZATION_RESPONSE), DEMOBILIZATION_RESPONSE, 1
+        )
+        missing_code = parsed_response.equipment_codes[-1]
+        response = ParsedDemobilizationResponse(
+            letter=parsed_response.letter,
+            equipment_codes=[
+                *parsed_response.equipment_codes[:-1],
+                "ZZZ-999",
+            ],
+        )
+
+        with self.assertRaises(ExtractionError) as raised:
+            validate_demobilization_pair(request, response)
+        self.assertIn(f"Faltantes: ['{missing_code}']", str(raised.exception))
+        self.assertIn("adicionales: ['ZZZ-999']", str(raised.exception))
 
 
 if __name__ == "__main__":

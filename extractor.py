@@ -116,6 +116,29 @@ class ParsedDemobilizationResponse:
     equipment_codes: list[str]
 
 
+def validate_demobilization_pair(
+    request: ParsedDemobilizationRequest,
+    response: ParsedDemobilizationResponse,
+) -> None:
+    """Ensure an authorization belongs to and exactly matches its request."""
+    if response.letter.referenced_cpc != request.letter.full_number:
+        raise ExtractionError(
+            f"{response.letter.full_number} referencia {response.letter.referenced_cpc}, "
+            f"no {request.letter.full_number}."
+        )
+
+    request_codes = {item.code for item in request.items}
+    response_codes = set(response.equipment_codes)
+    if response_codes != request_codes:
+        missing = sorted(request_codes - response_codes)
+        extra = sorted(response_codes - request_codes)
+        raise ExtractionError(
+            "La conformidad de desmovilizacion no coincide con la solicitud. "
+            f"Faltantes: {missing or 'ninguno'}; "
+            f"adicionales: {extra or 'ninguno'}."
+        )
+
+
 @dataclass(frozen=True)
 class OutputRow:
     owner: str
@@ -874,12 +897,8 @@ def extract_demobilization_documents(paths: list[Path]) -> list[OutputMovementRo
     rows: list[OutputMovementRow] = []
     for request_number, request in requests.items():
         response = responses.get(request_number)
-        request_codes = {item.code for item in request.items}
-        if response and set(response.equipment_codes) != request_codes:
-            raise ExtractionError(
-                f"{response.letter.full_number} no contiene las mismas placas que "
-                f"{request_number}"
-            )
+        if response:
+            validate_demobilization_pair(request, response)
         for item in request.items:
             rows.append(
                 OutputMovementRow(
