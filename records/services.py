@@ -34,6 +34,12 @@ from .models import (
     Presentation,
     ProcessingWarning,
 )
+from .equipment_rules import (
+    canonical_equipment_type,
+    comparable_equipment_type,
+    ensure_equipment_type,
+    refresh_equipment_status,
+)
 
 
 def prepare_preview(uploaded_files):
@@ -189,6 +195,26 @@ def prepare_preview(uploaded_files):
                     }
                 )
 
+        known_types = {
+            equipment.code: equipment.equipment_type
+            for equipment in Equipment.objects.exclude(equipment_type="")
+        }
+        batch_types = {}
+        for row in [*serialized_rows, *movement_rows]:
+            code = row["equipment_code"].upper()
+            incoming = canonical_equipment_type(row["equipment_type"])
+            current = batch_types.get(code) or known_types.get(code, "")
+            if current and comparable_equipment_type(
+                canonical_equipment_type(current)
+            ) != comparable_equipment_type(incoming):
+                raise ExtractionError(
+                    f"La placa {code} ya pertenece al tipo "
+                    f"{canonical_equipment_type(current)}; no puede registrarse "
+                    f"como {incoming}."
+                )
+            batch_types[code] = incoming
+            row["equipment_type"] = incoming
+
         if not serialized_rows and not movement_rows:
             raise ExtractionError("No se generaron filas para las cartas cargadas.")
         return {
@@ -207,6 +233,7 @@ def prepare_preview(uploaded_files):
 def persist_preview(preview, post_data, user):
     created_letters = {}
     stored_files = []
+    affected_equipment = set()
     try:
         for document in preview["documents"]:
             path = Path(document["path"])
@@ -259,6 +286,10 @@ def persist_preview(preview, post_data, user):
                 full_number=row["cpc_full_number"]
             )
             equipment, _ = Equipment.objects.get_or_create(code=row["equipment_code"].upper())
+            row["equipment_type"] = ensure_equipment_type(
+                equipment, row["equipment_type"]
+            )
+            affected_equipment.add(equipment.pk)
             presentation, _ = Presentation.objects.update_or_create(
                 cpc_letter=cpc,
                 equipment=equipment,
@@ -300,6 +331,10 @@ def persist_preview(preview, post_data, user):
             equipment, _ = Equipment.objects.get_or_create(
                 code=row["equipment_code"].upper()
             )
+            row["equipment_type"] = ensure_equipment_type(
+                equipment, row["equipment_type"]
+            )
+            affected_equipment.add(equipment.pk)
             status = (
                 EquipmentMovement.Status.AUTHORIZED
                 if response_letter
@@ -320,10 +355,8 @@ def persist_preview(preview, post_data, user):
                     "created_by": user,
                 },
             )
-            if response_letter:
-                equipment.operational_status = Equipment.OperationalStatus.RETIRED
-                equipment.retired_at = date.fromisoformat(row["movement_date"])
-                equipment.save(update_fields=["operational_status", "retired_at"])
+        for equipment in Equipment.objects.filter(pk__in=affected_equipment):
+            refresh_equipment_status(equipment)
 
         if preview["warnings"]:
             warning_letter = next(iter(created_letters.values()))

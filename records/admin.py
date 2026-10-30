@@ -25,7 +25,13 @@ class LetterAdmin(admin.ModelAdmin):
     list_filter = ("direction", "purpose", "source")
 
 
-admin.site.register(Equipment)
+@admin.register(Equipment)
+class EquipmentAdmin(admin.ModelAdmin):
+    list_display = ("code", "equipment_type", "operational_status", "retired_at")
+    search_fields = ("code", "equipment_type")
+    list_filter = ("equipment_type", "operational_status")
+
+
 admin.site.register(Presentation)
 admin.site.register(Evaluation)
 admin.site.register(EquipmentMovement)

@@ -69,9 +69,11 @@ class Letter(models.Model):
 class Equipment(models.Model):
     class OperationalStatus(models.TextChoices):
         ACTIVE = "ACTIVE", "Activo"
+        REQUESTED = "REQUESTED", "Retiro solicitado"
         RETIRED = "RETIRED", "Retirado"
 
     code = models.CharField("placa o código", max_length=40, unique=True)
+    equipment_type = models.CharField("tipo de equipo", max_length=100, blank=True)
     operational_status = models.CharField(
         "estado operativo",
         max_length=10,

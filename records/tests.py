@@ -3,6 +3,7 @@ from datetime import date
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -18,6 +19,8 @@ from .models import (
     Presentation,
 )
 from .services import persist_preview, prepare_preview
+from .equipment_rules import ensure_equipment_type, refresh_equipment_status
+from .selectors import current_inventory_by_type, filtered_records
 
 
 SAMPLES = Path("/home/aleu/Documentos/proyecto-krys")
@@ -63,6 +66,137 @@ class TestRecordModels(TestCase):
         )
         self.assertEqual(first.procedure_type, "Primera presentación")
         self.assertEqual(second.procedure_type, "Segunda presentación")
+
+    def test_same_plate_cannot_have_two_equipment_types(self):
+        equipment = Equipment.objects.create(
+            code="ABC-123", equipment_type="Excavadora"
+        )
+
+        with self.assertRaisesRegex(
+            ValidationError, "ya pertenece al tipo Excavadora"
+        ):
+            ensure_equipment_type(equipment, "Camioneta")
+
+    def test_inventory_counts_each_approved_active_plate_once(self):
+        equipment = Equipment.objects.create(
+            code="ABC-123", equipment_type="Excavadora"
+        )
+        for index in (1, 3):
+            cpc = self.letter(
+                f"PSR2-F2-CPC-AAM-GEN-GLB-CAR-{index:04d}", "CPC_AAM", index
+            )
+            aam = self.letter(
+                f"PSR2-F2-AAM-CPC-GEN-GLB-CAR-{index + 1:04d}",
+                "AAM_CPC",
+                index + 1,
+                response_to=cpc,
+            )
+            presentation = Presentation.objects.create(
+                cpc_letter=cpc,
+                equipment=equipment,
+                equipment_type="Excavadora",
+                created_by=self.user,
+            )
+            Evaluation.objects.create(
+                presentation=presentation,
+                response_letter=aam,
+                result=Evaluation.Result.APPROVED,
+                detail="Aprobado",
+                updated_by=self.user,
+            )
+
+        self.assertEqual(
+            current_inventory_by_type(),
+            [{"equipment_type": "Excavadora", "total": 1}],
+        )
+
+    def test_new_approval_after_retirement_reactivates_equipment(self):
+        equipment = Equipment.objects.create(
+            code="ABC-123", equipment_type="Excavadora"
+        )
+        request = self.letter(
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", "CPC_AAM", 1,
+            purpose=Letter.Purpose.DEMOBILIZATION,
+        )
+        response = self.letter(
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0002", "AAM_CPC", 2,
+            response_to=request,
+            purpose=Letter.Purpose.DEMOBILIZATION,
+        )
+        EquipmentMovement.objects.create(
+            equipment=equipment,
+            request_letter=request,
+            response_letter=response,
+            status=EquipmentMovement.Status.AUTHORIZED,
+            movement_date=date(2026, 1, 2),
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+        refresh_equipment_status(equipment)
+        equipment.refresh_from_db()
+        self.assertEqual(
+            equipment.operational_status, Equipment.OperationalStatus.RETIRED
+        )
+
+        cpc = self.letter(
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0003", "CPC_AAM", 3
+        )
+        aam = self.letter(
+            "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0004", "AAM_CPC", 4,
+            response_to=cpc,
+        )
+        presentation = Presentation.objects.create(
+            cpc_letter=cpc,
+            equipment=equipment,
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+        Evaluation.objects.create(
+            presentation=presentation,
+            response_letter=aam,
+            result=Evaluation.Result.APPROVED,
+            detail="Aprobado",
+            updated_by=self.user,
+        )
+        refresh_equipment_status(equipment)
+        equipment.refresh_from_db()
+
+        self.assertEqual(
+            equipment.operational_status, Equipment.OperationalStatus.ACTIVE
+        )
+        self.assertIsNone(equipment.retired_at)
+        self.assertEqual(current_inventory_by_type()[0]["total"], 1)
+
+    def test_presentations_and_retirements_share_one_record_list(self):
+        equipment = Equipment.objects.create(
+            code="ABC-123", equipment_type="Excavadora"
+        )
+        cpc = self.letter("PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", "CPC_AAM", 1)
+        Presentation.objects.create(
+            cpc_letter=cpc,
+            equipment=equipment,
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+        request = self.letter(
+            "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0002", "CPC_AAM", 2,
+            purpose=Letter.Purpose.DEMOBILIZATION,
+        )
+        EquipmentMovement.objects.create(
+            equipment=equipment,
+            request_letter=request,
+            status=EquipmentMovement.Status.REQUESTED,
+            movement_date=date(2026, 1, 2),
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+
+        records, _, _, _ = filtered_records({})
+
+        self.assertEqual(
+            {record["kind"] for record in records},
+            {"presentation", "movement"},
+        )
 
 
 class TestWebFlow(TestCase):
@@ -150,6 +284,37 @@ class TestWebFlow(TestCase):
             cpc.refresh_from_db()
             self.assertTrue(cpc.pdf.name.endswith("cpc-201.pdf"))
             self.assertTrue(Path(cpc.pdf.path).is_file())
+
+    def test_retirement_is_rendered_inside_the_main_records_table(self):
+        request = Letter.objects.create(
+            full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0202",
+            correlative=202,
+            direction=Letter.Direction.CPC_AAM,
+            purpose=Letter.Purpose.DEMOBILIZATION,
+            letter_date=date(2026, 5, 6),
+            reception_date=date(2026, 5, 6),
+            source=Letter.Source.MANUAL,
+            created_by=self.user,
+        )
+        equipment = Equipment.objects.create(
+            code="EXC-202",
+            equipment_type="Excavadora",
+            operational_status=Equipment.OperationalStatus.REQUESTED,
+        )
+        EquipmentMovement.objects.create(
+            equipment=equipment,
+            request_letter=request,
+            status=EquipmentMovement.Status.REQUESTED,
+            movement_date=date(2026, 5, 7),
+            equipment_type="Excavadora",
+            created_by=self.user,
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, "Desmovilización")
+        self.assertContains(response, "Retiro solicitado")
+        self.assertEqual(response.content.decode().count("<table"), 2)
 
 
 class TestPdfImport(TestCase):
@@ -288,6 +453,11 @@ class TestPdfImport(TestCase):
         self.assertEqual(movement.status, EquipmentMovement.Status.AUTHORIZED)
         self.assertEqual(movement.response_letter.correlative, 505)
         self.assertEqual(EquipmentMovement.objects.count(), 16)
+        records, _, _, _ = filtered_records({})
+        self.assertEqual(len(records), 40)
+        self.assertEqual(
+            sum(item["total"] for item in current_inventory_by_type()), 11
+        )
 
     def test_demobilization_request_without_response_stays_requested(self):
         preview = prepare_preview(
@@ -316,7 +486,7 @@ class TestPdfImport(TestCase):
         )
         self.assertFalse(
             Equipment.objects.exclude(
-                operational_status=Equipment.OperationalStatus.ACTIVE,
+                operational_status=Equipment.OperationalStatus.REQUESTED,
                 retired_at=None,
             ).exists()
         )
@@ -364,4 +534,19 @@ class TestPdfImport(TestCase):
         ):
             prepare_preview(
                 [self.upload_example("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0505.pdf")]
+            )
+
+    def test_pdf_with_existing_plate_under_another_type_is_rejected(self):
+        Equipment.objects.create(code="CET-756", equipment_type="Camioneta")
+
+        with self.assertRaisesRegex(
+            ExtractionError,
+            "La placa CET-756 ya pertenece al tipo Camioneta",
+        ):
+            prepare_preview(
+                [
+                    self.upload_example(
+                        "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0516-desmovilización 16 volquetes.pdf"
+                    )
+                ]
             )

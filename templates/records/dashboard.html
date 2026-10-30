@@ -11,11 +11,23 @@
 </section>
 
 <section class="stats-grid" aria-label="Resumen">
-  <article class="stat-card"><span>Registros</span><strong>{{ total }}</strong><small>equipos presentados</small></article>
+  <article class="stat-card"><span>Registros</span><strong>{{ total }}</strong><small>presentaciones y retiros</small></article>
+  <article class="stat-card stat-approved"><span>Equipos en uso</span><strong>{{ inventory_total }}</strong><small>placas aprobadas no retiradas</small></article>
   <article class="stat-card stat-approved"><span>Aprobados</span><strong>{{ approved }}</strong><small>aptos para ingreso</small></article>
   <article class="stat-card stat-observed"><span>Observados</span><strong>{{ observed }}</strong><small>requieren subsanación</small></article>
   <article class="stat-card stat-retired"><span>Retirados</span><strong>{{ retired }}</strong><small>equipos desmovilizados</small></article>
   <article class="stat-card"><span>Sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><span class="eyebrow">Inventario actual</span><h2>Equipos en uso por tipo</h2></div><span class="count-pill">{{ inventory_total }} equipos</span></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tipo de equipo</th><th>Cantidad actual</th></tr></thead>
+    <tbody>
+      {% for item in inventory_by_type %}<tr><td><strong>{{ item.equipment_type }}</strong></td><td>{{ item.total }}</td></tr>
+      {% empty %}<tr><td colspan="2"><div class="empty-state"><span>Aún no hay equipos aprobados en uso.</span></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
 </section>
 
 <section class="panel">
@@ -30,6 +42,7 @@
       <select name="status" aria-label="Filtrar por estado operativo">
         <option value="">Todos los estados</option>
         <option value="ACTIVE" {% if selected_status == 'ACTIVE' %}selected{% endif %}>Activo</option>
+        <option value="REQUESTED" {% if selected_status == 'REQUESTED' %}selected{% endif %}>Retiro solicitado</option>
         <option value="RETIRED" {% if selected_status == 'RETIRED' %}selected{% endif %}>Retirado</option>
       </select>
       <button class="button button-secondary" type="submit">Filtrar</button>
@@ -48,22 +61,23 @@
         <tr>
           <td><strong>{{ record.cpc_letter.correlative }}</strong><small>{{ record.cpc_letter.full_number }}</small></td>
           <td>{{ record.cpc_letter.letter_date|date:'d/m/Y' }}<small>Rec. {{ record.cpc_letter.reception_date|date:'d/m/Y'|default:'—' }}</small></td>
-          <td><span class="tag">{{ record.procedure_type }}</span></td>
-          <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small></td>
-          <td><span class="status {% if record.equipment.operational_status == 'RETIRED' %}status-observed{% else %}status-approved{% endif %}">{{ record.equipment.get_operational_status_display }}</span>{% if record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}</td>
+          <td><span class="tag">{{ record.event_label }}</span></td>
+          <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small>{% if record.movement %}<small>{{ record.movement.brand }} {{ record.movement.model }} · {{ record.movement.serial }}</small>{% endif %}</td>
+          <td><span class="status {% if record.operational_status == 'RETIRED' %}status-observed{% elif record.operational_status == 'REQUESTED' %}status-pending{% else %}status-approved{% endif %}">{{ record.operational_label }}</span>{% if record.movement %}<small>Salida {{ record.movement.movement_date|date:'d/m/Y' }}</small>{% elif record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}</td>
           <td>
             {% if record.evaluation %}
               <span class="status {% if record.evaluation.result == 'APPROVED' %}status-approved{% else %}status-observed{% endif %}">{{ record.evaluation.get_result_display }}</span>
               <small class="detail-text">{{ record.evaluation.detail }}</small>
+            {% elif record.kind == 'movement' %}<span class="status">No aplica</span>
             {% else %}<span class="status status-pending">Pendiente</span>{% endif %}
           </td>
           <td>
-            {% if record.evaluation %}<strong>{{ record.evaluation.response_letter.correlative }}</strong><small>{{ record.evaluation.response_letter.letter_date|date:'d/m/Y' }}</small>{% else %}—{% endif %}
+            {% if record.response_letter %}<strong>{{ record.response_letter.correlative }}</strong><small>{{ record.response_letter.letter_date|date:'d/m/Y' }}</small>{% else %}—{% endif %}
           </td>
           <td class="row-actions">
-            <a href="{% url 'edit_presentation' record.pk %}">Editar</a>
+            {% if record.kind == 'presentation' %}<a href="{% url 'edit_presentation' record.source.pk %}">Editar</a>{% endif %}
             {% if record.cpc_letter.pdf %}<a href="{{ record.cpc_letter.pdf.url }}" target="_blank">PDF CPC</a>{% endif %}
-            {% if record.evaluation and record.evaluation.response_letter.pdf %}<a href="{{ record.evaluation.response_letter.pdf.url }}" target="_blank">PDF AAM</a>{% endif %}
+            {% if record.response_letter and record.response_letter.pdf %}<a href="{{ record.response_letter.pdf.url }}" target="_blank">PDF AAM</a>{% endif %}
             <a class="danger-link" href="{% url 'delete_letter' record.cpc_letter.pk %}">Eliminar carta</a>
           </td>
         </tr>
@@ -74,19 +88,4 @@
     </table>
   </div>
 </section>
-
-{% if movements %}
-<section class="panel">
-  <div class="panel-heading"><div><span class="eyebrow">Historial operativo</span><h2>Desmovilizaciones</h2></div><span class="count-pill">{{ movements|length }} movimientos</span></div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Equipo</th><th>Marca / modelo</th><th>Serie / año</th><th>Salida</th><th>Solicitud CPC</th><th>Conformidad AAM</th><th>Estado</th></tr></thead>
-    <tbody>{% for movement in movements %}<tr>
-      <td><strong>{{ movement.equipment.code }}</strong><small>{{ movement.equipment_type }}</small></td>
-      <td>{{ movement.brand }}<small>{{ movement.model|default:'—' }}</small></td><td>{{ movement.serial }}<small>{{ movement.year|default:'—' }}</small></td>
-      <td>{{ movement.movement_date|date:'d/m/Y' }}</td><td>{{ movement.request_letter.correlative }}</td><td>{{ movement.response_letter.correlative|default:'—' }}</td>
-      <td><span class="status {% if movement.status == 'AUTHORIZED' %}status-observed{% else %}status-pending{% endif %}">{{ movement.get_status_display }}</span></td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-</section>
-{% endif %}
 {% endblock %}

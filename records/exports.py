@@ -10,6 +10,7 @@ from .models import Evaluation
 
 
 EXPORT_HEADERS = [
+    "Tipo de registro",
     "Propietario del Equipo",
     "N° Correlativo Carta de Entrada",
     "Fecha de carta CPC",
@@ -23,7 +24,7 @@ EXPORT_HEADERS = [
     "Fecha de carta AAM",
     "Dato adicional",
     "Estado operativo",
-    "Fecha de retiro",
+    "Fecha de salida / retiro",
 ]
 
 
@@ -38,6 +39,7 @@ def presentation_values(presentation):
         result = detail = ""
         response = None
     return [
+        "Presentación",
         presentation.owner,
         presentation.cpc_letter.correlative,
         presentation.cpc_letter.letter_date.strftime("%d/%m/%Y"),
@@ -59,6 +61,47 @@ def presentation_values(presentation):
     ]
 
 
+def movement_values(movement):
+    """Convierte una solicitud o retiro en la misma estructura exportable."""
+    technical_detail = " · ".join(
+        value
+        for value in [
+            movement.brand,
+            movement.model,
+            movement.serial,
+            str(movement.year) if movement.year else "",
+        ]
+        if value
+    )
+    return [
+        "Desmovilización",
+        "CPC",
+        movement.request_letter.correlative,
+        movement.request_letter.letter_date.strftime("%d/%m/%Y"),
+        movement.request_letter.reception_date.strftime("%d/%m/%Y")
+        if movement.request_letter.reception_date
+        else "",
+        "Desmovilización",
+        movement.equipment_type,
+        movement.equipment.code,
+        "",
+        technical_detail,
+        movement.response_letter.correlative if movement.response_letter else "",
+        movement.response_letter.letter_date.strftime("%d/%m/%Y")
+        if movement.response_letter
+        else "",
+        "",
+        movement.get_status_display(),
+        movement.movement_date.strftime("%d/%m/%Y"),
+    ]
+
+
+def record_values(record):
+    if record["kind"] == "movement":
+        return movement_values(record["source"])
+    return presentation_values(record["source"])
+
+
 def workbook_bytes(records):
     """Genera el contenido binario de un libro Excel con los registros."""
     workbook = Workbook()
@@ -66,7 +109,7 @@ def workbook_bytes(records):
     sheet.title = "Registros"
     sheet.append(EXPORT_HEADERS)
     for record in records:
-        sheet.append(presentation_values(record))
+        sheet.append(record_values(record))
 
     fill = PatternFill("solid", fgColor="163A5F")
     for cell in sheet[1]:

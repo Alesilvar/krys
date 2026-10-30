@@ -72,10 +72,11 @@ Para crear otra cuenta con acceso completo a la aplicación:
 .venv/bin/python manage.py test
 ```
 
-Las 36 pruebas actuales cubren los PDF aportados, formatos variables de listas
+Las 42 pruebas actuales cubren los PDF aportados, formatos variables de listas
 y observaciones, aprobaciones generales, cadenas de subsanación, el modelo de
-datos, la desmovilización, el ingreso manual, la importación web, la exportación
-y el borrado completo.
+datos, la desmovilización, el inventario actual por tipo, la tabla histórica
+unificada, el ingreso manual, la importación web, la exportación y el borrado
+completo.
 
 ## Configuración
 

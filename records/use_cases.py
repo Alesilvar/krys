@@ -9,6 +9,7 @@ from django.core.files.storage import default_storage
 from django.db import transaction
 
 from .models import AuditEvent, Equipment, Evaluation, Letter, Presentation
+from .equipment_rules import ensure_equipment_type, refresh_equipment_status
 
 
 def letter_correlative(full_number):
@@ -80,10 +81,11 @@ def create_manual_record(data, user):
     equipment, _ = Equipment.objects.get_or_create(
         code=data["equipment_code"].strip().upper()
     )
+    equipment_type = ensure_equipment_type(equipment, data["equipment_type"])
     presentation = Presentation.objects.create(
         cpc_letter=cpc,
         equipment=equipment,
-        equipment_type=data["equipment_type"].strip(),
+        equipment_type=equipment_type,
         additional_data=data["additional_data"].strip(),
         created_by=user,
     )
@@ -95,6 +97,7 @@ def create_manual_record(data, user):
             detail=data["detail"].strip(),
             updated_by=user,
         )
+    refresh_equipment_status(equipment)
     AuditEvent.objects.create(
         user=user,
         action=AuditEvent.Action.CREATE,
@@ -116,9 +119,11 @@ def update_presentation(presentation, data, user):
         "equipment_code": presentation.equipment.code,
         "additional_data": presentation.additional_data,
     }
+    previous_equipment = presentation.equipment
     equipment, _ = Equipment.objects.get_or_create(
         code=data["equipment_code"].strip().upper()
     )
+    equipment_type = ensure_equipment_type(equipment, data["equipment_type"])
     cpc = presentation.cpc_letter
     cpc.full_number = data["cpc_full_number"]
     cpc.correlative = letter_correlative(cpc.full_number)
@@ -129,7 +134,7 @@ def update_presentation(presentation, data, user):
     cpc.save()
 
     presentation.equipment = equipment
-    presentation.equipment_type = data["equipment_type"].strip()
+    presentation.equipment_type = equipment_type
     presentation.additional_data = data["additional_data"].strip()
     presentation.save()
 
@@ -167,6 +172,10 @@ def update_presentation(presentation, data, user):
     else:
         Evaluation.objects.filter(presentation=presentation).delete()
 
+    refresh_equipment_status(equipment)
+    if previous_equipment.pk != equipment.pk:
+        refresh_equipment_status(previous_equipment)
+
     AuditEvent.objects.create(
         user=user,
         action=AuditEvent.Action.UPDATE,
@@ -186,6 +195,10 @@ def delete_cpc_letter(letter, user):
     """Elimina una cadena CPC/AAM y sus archivos, conservando la auditoria."""
     response = getattr(letter, "response_letter", None)
     files = [item.pdf.name for item in (letter, response) if item and item.pdf]
+    equipment_ids = set(letter.presentations.values_list("equipment_id", flat=True))
+    equipment_ids.update(
+        letter.requested_movements.values_list("equipment_id", flat=True)
+    )
     number = letter.full_number
     with transaction.atomic():
         AuditEvent.objects.create(
@@ -196,6 +209,8 @@ def delete_cpc_letter(letter, user):
             details={"permanent": True},
         )
         letter.delete()
+        for equipment in Equipment.objects.filter(pk__in=equipment_ids):
+            refresh_equipment_status(equipment)
     for name in files:
         default_storage.delete(name)
     return number

@@ -31,30 +31,23 @@
         <label>Fecha de recepción · CPC {{ doc.correlative }}<input type="date" name="reception_{{ doc.correlative }}" required></label>
       {% endif %}{% endfor %}
     </div>
-    {% if preview.rows %}<div class="table-wrap">
+    {% if preview.rows or preview.movement_rows %}<div class="table-wrap">
       <table class="preview-table">
-        <thead><tr><th>CPC</th><th>Fecha</th><th>Trámite</th><th>Equipo</th><th>Código</th><th>Resultado</th><th>Detalle</th><th>AAM</th><th>Dato adicional</th></tr></thead>
+        <thead><tr><th>CPC</th><th>Fecha</th><th>Trámite</th><th>Equipo</th><th>Código</th><th>Estado operativo</th><th>Resultado SST</th><th>Detalle</th><th>AAM</th><th>Dato adicional</th></tr></thead>
         <tbody>{% for row in preview.rows %}<tr>
           <td>{{ row.cpc_correlative }}</td><td>{{ row.cpc_date }}</td><td>{{ row.procedure_type }}</td><td>{{ row.equipment_type }}</td><td><strong>{{ row.equipment_code }}</strong></td>
+          <td><span class="status status-approved">Activo</span></td>
           <td><span class="status {% if row.result == 'Aprobado' %}status-approved{% else %}status-observed{% endif %}">{{ row.result|default:'Pendiente' }}</span></td>
           <td class="detail-cell">{{ row.detail|linebreaksbr }}</td><td>{{ row.aam_correlative }}</td>
           <td><textarea name="additional_{{ row.row_index }}" rows="2" aria-label="Dato adicional para {{ row.equipment_code }}"></textarea></td>
+        </tr>{% endfor %}
+        {% for row in preview.movement_rows %}<tr>
+          <td>{{ row.request_correlative }}</td><td>{{ row.movement_date }}</td><td>Desmovilización</td><td>{{ row.equipment_type }}</td><td><strong>{{ row.equipment_code }}</strong></td>
+          <td><span class="status {% if row.status == 'Retirado' %}status-observed{% else %}status-pending{% endif %}">{{ row.status }}</span></td>
+          <td>No aplica</td><td>{{ row.brand }} {{ row.model }} · {{ row.serial }} · {{ row.year }}</td><td>{{ row.response_correlative|default:'—' }}</td><td>—</td>
         </tr>{% endfor %}</tbody>
       </table>
     </div>{% endif %}
-    {% if preview.movement_rows %}
-    <div class="panel-heading"><div><span class="eyebrow">Movimientos</span><h2>Desmovilización</h2></div></div>
-    <div class="table-wrap">
-      <table class="preview-table">
-        <thead><tr><th>CPC</th><th>Equipo</th><th>Marca / modelo</th><th>Serie / año</th><th>Fecha de salida</th><th>Estado</th><th>AAM</th></tr></thead>
-        <tbody>{% for row in preview.movement_rows %}<tr>
-          <td>{{ row.request_correlative }}</td><td><strong>{{ row.equipment_code }}</strong><small>{{ row.equipment_type }}</small></td>
-          <td>{{ row.brand }}<small>{{ row.model|default:'—' }}</small></td><td>{{ row.serial }}<small>{{ row.year }}</small></td>
-          <td>{{ row.movement_date }}</td><td><span class="status status-approved">{{ row.status }}</span></td><td>{{ row.response_correlative|default:'—' }}</td>
-        </tr>{% endfor %}</tbody>
-      </table>
-    </div>
-    {% endif %}
     <div class="confirm-bar"><span>Confirma que los datos coinciden con las cartas.</span><button class="button button-primary" type="submit">Guardar datos</button></div>
   </form>
 </section>
