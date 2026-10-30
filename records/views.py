@@ -3,14 +3,16 @@ from __future__ import annotations
 import csv
 
 from django.contrib import messages
+from django.contrib.messages import get_messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from extractor import ExtractionError
 
+from .templatetags.react_ui import build_payload
 from .exports import EXPORT_HEADERS, record_values, workbook_bytes
 from .forms import LetterEditForm, ManualRecordForm, MovementEditForm, PresentationEditForm, UploadLettersForm
 from .models import EquipmentMovement, Letter, Presentation
@@ -19,9 +21,17 @@ from .services import persist_preview, prepare_preview
 from .use_cases import create_manual_record, delete_cpc_letter, update_letter_and_movement, update_presentation
 
 
+def render_page(request, template_name, context=None):
+    context = context or {}
+    if request.headers.get('X-KS-Client') == 'react':
+        context = {**context, 'request': request, 'messages': get_messages(request)}
+        return JsonResponse(build_payload(context), headers={'Cache-Control': 'no-store', 'Vary': 'Cookie, X-KS-Client'})
+    return render(request, template_name, context)
+
+
 @login_required
 def profile(request):
-    return render(request, "records/profile.html")
+    return render_page(request, "records/profile.html")
 
 
 @login_required
@@ -34,7 +44,7 @@ def dashboard(request):
         "selected_status": operational_status,
         **dashboard_metrics(),
     }
-    return render(request, "records/dashboard.html", context)
+    return render_page(request, "records/dashboard.html", context)
 
 
 @login_required
@@ -47,7 +57,7 @@ def upload_letters(request):
                 preview = prepare_preview(form.cleaned_data["files"])
                 request.session["upload_preview"] = preview
                 request.session.modified = True
-                return render(
+                return render_page(
                     request,
                     "records/upload.html",
                     {"form": UploadLettersForm(), "preview": preview},
@@ -56,7 +66,7 @@ def upload_letters(request):
                 messages.error(request, str(error))
     else:
         form = UploadLettersForm()
-    return render(request, "records/upload.html", {"form": form, "preview": preview})
+    return render_page(request, "records/upload.html", {"form": form, "preview": preview})
 
 
 @login_required
@@ -71,7 +81,7 @@ def confirm_upload(request):
         persist_preview(preview, request.POST, request.user)
     except (ExtractionError, IntegrityError, ValidationError, ValueError) as error:
         messages.error(request, str(error))
-        return render(
+        return render_page(
             request,
             "records/upload.html",
             {"form": UploadLettersForm(), "preview": preview},
@@ -93,7 +103,7 @@ def manual_record(request):
         else:
             messages.success(request, "Registro manual guardado.")
             return redirect("dashboard")
-    return render(request, "records/manual.html", {"form": form})
+    return render_page(request, "records/manual.html", {"form": form})
 
 
 @login_required
@@ -115,7 +125,7 @@ def edit_presentation(request, pk):
         else:
             messages.success(request, "Registro actualizado.")
             return redirect("dashboard")
-    return render(
+    return render_page(
         request,
         "records/edit.html",
         {"form": form, "presentation": presentation},
@@ -129,7 +139,7 @@ def delete_letter(request, pk):
         number = delete_cpc_letter(letter, request.user)
         messages.success(request, f"La carta {number} y todos sus datos fueron eliminados.")
         return redirect("dashboard")
-    return render(request, "records/delete.html", {"letter": letter})
+    return render_page(request, "records/delete.html", {"letter": letter})
 
 
 @login_required
@@ -158,7 +168,7 @@ def export_xlsx(request):
 
 @login_required
 def letters(request):
-    return render(request, "records/letters.html", {"expedients": letter_expedients(request.GET), "query": request.GET.get("q", ""), "status": request.GET.get("status", "")})
+    return render_page(request, "records/letters.html", {"expedients": letter_expedients(request.GET), "query": request.GET.get("q", ""), "status": request.GET.get("status", "")})
 
 
 @login_required
@@ -173,7 +183,7 @@ def edit_letter(request, pk):
         else:
             messages.success(request, "Carta actualizada.")
             return redirect("letters")
-    return render(request, "records/edit_letter.html", {"form": form, "letter": letter})
+    return render_page(request, "records/edit_letter.html", {"form": form, "letter": letter})
 
 
 @login_required
@@ -188,4 +198,4 @@ def edit_movement(request, pk):
         else:
             messages.success(request, "Desmovilización actualizada.")
             return redirect("letters")
-    return render(request, "records/edit_letter.html", {"form": form, "letter": movement.request_letter, "movement": movement})
+    return render_page(request, "records/edit_letter.html", {"form": form, "letter": movement.request_letter, "movement": movement})

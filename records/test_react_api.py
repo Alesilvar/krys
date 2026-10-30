@@ -80,3 +80,20 @@ class DashboardApiTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.payload(response)['profile'], {'username': 'react-test', 'name': 'Ale', 'email': 'ale@example.test'})
+
+    def test_client_page_responses_and_validation(self):
+        self.client.force_login(self.user)
+        header = {'HTTP_X_KS_CLIENT': 'react'}
+        response = self.client.get(reverse('letters'), **header)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertEqual(response.json()['expedients'][0][0]['presentations'][0]['code'], 'ABC-123')
+        response = self.client.post(reverse('manual_record'), {'cpc_full_number': 'invalid'}, **header)
+        field = next(f for f in response.json()['form']['fields'] if f['name'] == 'cpc_full_number')
+        self.assertTrue(field['errors'])
+        self.assertEqual(field['value'], 'invalid')
+        self.assertIn('no-store', response['Cache-Control'])
+
+    def test_client_routes_keep_authentication(self):
+        response = self.client.get(reverse('profile'), HTTP_X_KS_CLIENT='react')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/ingresar/', response['Location'])

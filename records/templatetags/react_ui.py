@@ -58,8 +58,7 @@ def serialize_letter(letter):
         'presentations': presentations, 'movements': movements}
 
 
-@register.simple_tag(takes_context=True)
-def react_payload(context):
+def build_payload(context):
     request = context['request']
     page = request.resolver_match.url_name
     data = {'page': page, 'csrf': get_token(request), 'authenticated': request.user.is_authenticated,
@@ -88,4 +87,9 @@ def react_payload(context):
             data['letter'].update(presentations=letter.presentations.count(), movements=letter.requested_movements.count(), response=response.full_number if response else '')
         if context.get('movement'):
             data['movement'] = {'code': context['movement'].equipment.code}
-    return json_script(data, 'krys-data')
+    return data
+
+
+@register.simple_tag(takes_context=True)
+def react_payload(context):
+    return json_script(build_payload(context), 'krys-data')
