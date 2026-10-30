@@ -314,7 +314,7 @@ class TestWebFlow(TestCase):
 
         self.assertContains(response, "Desmovilización")
         self.assertContains(response, "Retiro solicitado")
-        self.assertEqual(response.content.decode().count("<table"), 2)
+        self.assertEqual(response.content.decode().count("<table"), 1)
 
 
 class TestPdfImport(TestCase):
