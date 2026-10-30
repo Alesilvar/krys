@@ -1,8 +1,9 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {Link, useLocation} from 'react-router';
 
 export function Button({children, href, variant='primary', ...props}) {
   const className = `button button-${variant} ${props.className || ''}`;
-  return href ? <a href={href} className={className}>{children}</a> : <button {...props} className={className}>{children}</button>;
+  return href ? <Link to={href} className={className}>{children}</Link> : <button {...props} className={className}>{children}</button>;
 }
 export function Hero({eyebrow, title, description, back, backLabel='Volver', children}) {
   return <section className="hero-row compact"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1>{description && <p>{description}</p>}</div>{back && <Button href={back} variant="ghost">{backLabel}</Button>}{children}</section>;
@@ -47,6 +48,8 @@ function MenuIcon({name}) {
 }
 function UserMenu({data}) {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location]);
   const container = useRef(null);
   const trigger = useRef(null);
   useEffect(() => {
@@ -57,10 +60,12 @@ function UserMenu({data}) {
     document.addEventListener('keydown', keys);
     return () => {document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', keys);};
   }, [open]);
-  return <div className="account-menu" ref={container}><button ref={trigger} type="button" className="account-trigger" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="account-popover" aria-label="Menú de usuario"><span className="account-avatar" aria-hidden="true">{data.username.trim().charAt(0).toUpperCase()}</span><span className="account-name">{data.username}</span><svg className="account-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>{open && <div id="account-popover" className="account-popover"><div className="account-heading"><small>Sesión iniciada</small><strong>{data.username}</strong></div><a className="account-action" href="/perfil/"><MenuIcon name="user"/>Mi perfil</a><form method="post" action="/salir/"><Csrf token={data.csrf}/><button type="submit" className="account-action account-logout"><MenuIcon name="logout"/>Cerrar sesión</button></form></div>}</div>;
+  return <div className="account-menu" ref={container}><button ref={trigger} type="button" className="account-trigger" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="account-popover" aria-label="Menú de usuario"><span className="account-avatar" aria-hidden="true">{data.username.trim().charAt(0).toUpperCase()}</span><span className="account-name">{data.username}</span><svg className="account-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>{open && <div id="account-popover" className="account-popover"><div className="account-heading"><small>Sesión iniciada</small><strong>{data.username}</strong></div><Link className="account-action" to="/perfil/"><MenuIcon name="user"/>Mi perfil</Link><form method="post" action="/salir/"><Csrf token={data.csrf}/><button type="submit" className="account-action account-logout"><MenuIcon name="logout"/>Cerrar sesión</button></form></div>}</div>;
 }
 function Sidebar({data}) {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location]);
   const toggle = useRef(null);
   const close = useRef(null);
   useEffect(() => {
@@ -80,8 +85,8 @@ function Sidebar({data}) {
   }, [open]);
   const dismiss = () => {setOpen(false); toggle.current?.focus();};
   return <>
-    <header className="topbar app-topbar"><div className="topbar-left"><button ref={toggle} type="button" className="menu-toggle" onClick={() => setOpen(true)} aria-label="Abrir menú" aria-expanded={open} aria-controls="side-menu"><MenuIcon name="menu"/></button><a className="brand" href="/" aria-label="Ir al inicio"><span className="brand-mark">KS</span><span><strong>KS</strong><small>Control documental SST</small></span></a></div><UserMenu data={data}/></header>
-    {open && <><div className="menu-backdrop" onClick={dismiss} aria-hidden="true"/><aside id="side-menu" className="side-menu" role="dialog" aria-modal="true" aria-label="Menú principal"><div className="side-menu-header"><div className="brand"><span className="brand-mark">KS</span><span><strong>KS</strong><small>Control documental SST</small></span></div><button ref={close} type="button" className="menu-close" onClick={dismiss} aria-label="Cerrar menú"><MenuIcon name="close"/></button></div><p className="side-menu-caption">MENÚ PRINCIPAL</p><nav className="side-menu-links" aria-label="Navegación principal">{menuItems.map(item => <a key={item.href} className={'side-menu-link '+(item.pages.includes(data.page)?'is-active':'')} href={item.href} aria-current={item.pages.includes(data.page)?'page':undefined}><MenuIcon name={item.icon}/><span>{item.label}</span></a>)}</nav><div className="side-menu-footer"><span className="side-menu-user">{data.username}</span><form method="post" action="/salir/"><Csrf token={data.csrf}/><button type="submit" className="side-menu-link side-menu-logout"><MenuIcon name="logout"/><span>Salir</span></button></form></div></aside></>}
+    <header className="topbar app-topbar"><div className="topbar-left"><button ref={toggle} type="button" className="menu-toggle" onClick={() => setOpen(true)} aria-label="Abrir menú" aria-expanded={open} aria-controls="side-menu"><MenuIcon name="menu"/></button><Link className="brand" to="/" aria-label="Ir al inicio"><span className="brand-mark">KS</span><span><strong>KS</strong><small>Control documental SST</small></span></Link></div><UserMenu data={data}/></header>
+    {open && <><div className="menu-backdrop" onClick={dismiss} aria-hidden="true"/><aside id="side-menu" className="side-menu" role="dialog" aria-modal="true" aria-label="Menú principal"><div className="side-menu-header"><div className="brand"><span className="brand-mark">KS</span><span><strong>KS</strong><small>Control documental SST</small></span></div><button ref={close} type="button" className="menu-close" onClick={dismiss} aria-label="Cerrar menú"><MenuIcon name="close"/></button></div><p className="side-menu-caption">MENÚ PRINCIPAL</p><nav className="side-menu-links" aria-label="Navegación principal">{menuItems.map(item => <Link key={item.href} className={'side-menu-link '+(item.pages.includes(data.page)?'is-active':'')} to={item.href} aria-current={item.pages.includes(data.page)?'page':undefined}><MenuIcon name={item.icon}/><span>{item.label}</span></Link>)}</nav><div className="side-menu-footer"><span className="side-menu-user">{data.username}</span><form method="post" action="/salir/"><Csrf token={data.csrf}/><button type="submit" className="side-menu-link side-menu-logout"><MenuIcon name="logout"/><span>Salir</span></button></form></div></aside></>}
   </>;
 }
 export function Layout({data, children}) {

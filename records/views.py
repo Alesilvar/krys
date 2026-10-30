@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.cache import patch_vary_headers
 
 from extractor import ExtractionError
 
@@ -26,7 +27,9 @@ def render_page(request, template_name, context=None):
     if request.headers.get('X-KS-Client') == 'react':
         context = {**context, 'request': request, 'messages': get_messages(request)}
         return JsonResponse(build_payload(context), headers={'Cache-Control': 'no-store', 'Vary': 'Cookie, X-KS-Client'})
-    return render(request, template_name, context)
+    response = render(request, template_name, context)
+    patch_vary_headers(response, ('X-KS-Client',))
+    return response
 
 
 @login_required

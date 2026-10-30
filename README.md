@@ -88,7 +88,8 @@ almacenamiento persistente del proveedor elegido.
 
 ## Frontend React
 
-La interfaz usa React con componentes compartidos para navegación, formularios,
+La interfaz usa React Router para navegar entre páginas sin recargarlas y
+componentes compartidos para navegación, formularios,
 botones y paneles. Django entrega los datos y procesa los formularios, las sesiones
 y las reglas de negocio; el panel consulta `/api/dashboard/`. Las plantillas
 existentes quedan como alternativa si JavaScript no está disponible.
@@ -98,7 +99,7 @@ luego ejecuta:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run build
 ```
 

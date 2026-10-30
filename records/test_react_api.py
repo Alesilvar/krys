@@ -97,3 +97,23 @@ class DashboardApiTests(TestCase):
         response = self.client.get(reverse('profile'), HTTP_X_KS_CLIENT='react')
         self.assertEqual(response.status_code, 302)
         self.assertIn('/ingresar/', response['Location'])
+
+    def test_client_upload_preview_and_confirmation(self):
+        import tempfile
+        from pathlib import Path
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        self.client.force_login(self.user)
+        samples = Path('/home/aleu/Documentos/proyecto-krys')
+        names = ['PSR2-F2-CPC-AAM-GEN-GLB-CAR-0150.pdf', 'PSR2-F2-AAM-CPC-GEN-GLB-CAR-0118.pdf']
+        files = [SimpleUploadedFile(name, (samples / name).read_bytes(), content_type='application/pdf') for name in names]
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=Path(media)):
+            header = {'HTTP_X_KS_CLIENT': 'react'}
+            response = self.client.post(reverse('upload_letters'), {'files': files}, **header)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()['preview']['rows']), 2)
+            self.assertEqual(Presentation.objects.count(), 1)
+            response = self.client.post(reverse('confirm_upload'), {'reception_150': '2026-03-30'}, follow=True, **header)
+            self.assertEqual(response.json()['page'], 'dashboard')
+            self.assertEqual(Presentation.objects.count(), 3)
+            self.assertTrue(response.json()['messages'])
