@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Cartas · KS{% endblock %}
+{% block content %}
+<section class="hero-row compact"><div><span class="eyebrow">Control documental</span><h1>Expedientes de cartas</h1><p>Consulta las cartas CPC, sus respuestas y subsanaciones.</p></div></section>
+<section class="panel form-panel">
+  <form method="get" class="stack-form two-columns">
+    <div class="form-field"><label for="q">Número de carta o código de equipo</label><input id="q" name="q" value="{{ query }}" placeholder="Buscar cartas o equipos"></div>
+    <div class="form-field"><label for="status">Estado de respuesta</label><select id="status" name="status"><option value="">Todos</option><option value="pending" {% if status == 'pending' %}selected{% endif %}>Pendiente</option><option value="answered" {% if status == 'answered' %}selected{% endif %}>Respondida</option></select></div>
+    <div class="full-width form-actions"><button class="button button-primary" type="submit">Buscar</button><a class="button button-ghost" href="{% url 'letters' %}">Limpiar</a></div>
+  </form>
+</section>
+{% for group in expedients %}
+<details class="panel form-panel" style="margin-top: 1rem">
+  <summary><strong>Expediente {{ group.0.full_number }}</strong> · {{ group|length }} carta{{ group|length|pluralize }}</summary>
+  {% for letter in group %}
+  <article style="padding: 1rem 0; border-top: 1px solid #ddd; margin-top: 1rem">
+    <h2>CPC {{ letter.full_number }}</h2>
+    <p>Fecha: {{ letter.letter_date|date:'d/m/Y' }}{% if letter.reception_date %} · Recepción: {{ letter.reception_date|date:'d/m/Y' }}{% endif %} · {{ letter.get_purpose_display }}</p>
+    <p>{% if letter.pdf %}<a href="{{ letter.pdf.url }}" target="_blank" rel="noopener">Abrir PDF CPC</a>{% else %}PDF CPC no disponible{% endif %}</p>
+    {% if letter.response_letter %}<p><strong>Respuesta AAM:</strong> {{ letter.response_letter.full_number }} · {{ letter.response_letter.letter_date|date:'d/m/Y' }} · {% if letter.response_letter.pdf %}<a href="{{ letter.response_letter.pdf.url }}" target="_blank" rel="noopener">Abrir PDF AAM</a>{% else %}PDF AAM no disponible{% endif %}</p>{% else %}<p><strong>Respuesta pendiente</strong></p>{% endif %}
+    <p><a href="{% url 'edit_letter' letter.pk %}">Editar carta</a> · <a href="{% url 'delete_letter' letter.pk %}">Eliminar carta</a></p>
+    {% for item in letter.presentations.all %}<p><strong>{{ item.equipment.code }}</strong> · {{ item.equipment_type }} · {{ item.procedure_type }}{% if item.additional_data %} · {{ item.additional_data }}{% endif %}{% if item.evaluation %} · {{ item.evaluation.get_result_display }}: {{ item.evaluation.detail }}{% endif %} · <a href="{% url 'edit_presentation' item.pk %}">Editar equipo</a></p>{% endfor %}
+    {% for item in letter.requested_movements.all %}<p><strong>{{ item.equipment.code }}</strong> · {{ item.equipment_type }} · {{ item.get_status_display }} · Salida: {{ item.movement_date|date:'d/m/Y' }}{% if item.brand %} · {{ item.brand }}{% endif %}{% if item.model %} · {{ item.model }}{% endif %}{% if item.serial %} · Serie {{ item.serial }}{% endif %}{% if item.year %} · {{ item.year }}{% endif %} · <a href="{% url 'edit_movement' item.pk %}">Editar equipo</a></p>{% endfor %}
+  </article>
+  {% endfor %}
+</details>
+{% empty %}<section class="panel form-panel"><p>No se encontraron expedientes.</p></section>{% endfor %}
+{% endblock %}

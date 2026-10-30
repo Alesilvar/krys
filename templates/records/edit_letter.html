@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Editar carta · KS{% endblock %}
+{% block content %}
+<section class="hero-row compact"><div><span class="eyebrow">Edición</span><h1>{% if movement %}Desmovilización {{ movement.equipment.code }}{% else %}Carta CPC {{ letter.correlative }}{% endif %}</h1><p>Los cambios en la carta se reflejan en todos sus equipos.</p></div><a class="button button-ghost" href="{% url 'letters' %}">Cancelar</a></section>
+<section class="panel form-panel"><form method="post" enctype="multipart/form-data" class="stack-form two-columns">{% csrf_token %}
+{{ form.non_field_errors }}
+{% for field in form %}<div class="form-field">{{ field.label_tag }}{{ field }}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>{% endfor %}
+<div class="full-width form-actions"><button class="button button-primary" type="submit">Guardar cambios</button></div></form></section>
+{% endblock %}

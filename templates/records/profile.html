@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Mi perfil · KS{% endblock %}
+{% block content %}
+<section class="hero-row compact"><div><span class="eyebrow">Tu cuenta</span><h1>Mi perfil</h1><p>Información de tu cuenta en KS.</p></div><a class="button button-ghost" href="{% url 'dashboard' %}">Volver</a></section>
+<section class="panel form-panel profile-panel"><div class="profile-details"><div><span>Nombre de usuario</span><strong>{{ user.get_username }}</strong></div><div><span>Nombre completo</span><strong>{{ user.get_full_name|default:'No registrado' }}</strong></div><div><span>Correo electrónico</span><strong>{{ user.email|default:'No registrado' }}</strong></div></div></section>
+{% endblock %}

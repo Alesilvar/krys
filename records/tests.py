@@ -550,3 +550,45 @@ class TestPdfImport(TestCase):
                     )
                 ]
             )
+
+
+class TestLetterExpedients(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("expedientes", password="test")
+        self.client.force_login(self.user)
+        self.cpc = Letter.objects.create(full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", correlative=1, direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 1), created_by=self.user)
+        self.response = Letter.objects.create(full_number="PSR2-F2-AAM-CPC-GEN-GLB-CAR-0002", correlative=2, direction=Letter.Direction.AAM_CPC, letter_date=date(2026, 1, 2), response_to=self.cpc, created_by=self.user)
+        self.followup = Letter.objects.create(full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0003", correlative=3, direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 3), predecessor_response=self.response, created_by=self.user)
+
+    def test_grouping_search_and_pending(self):
+        equipment = Equipment.objects.create(code="ABC-1", equipment_type="Volquete")
+        Presentation.objects.create(cpc_letter=self.followup, equipment=equipment, equipment_type="Volquete", created_by=self.user)
+        result = self.client.get(reverse("letters"), {"q": "ABC-1", "status": "pending"})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(result.context["expedients"]), 1)
+        self.assertEqual([letter.pk for letter in result.context["expedients"][0]], [self.cpc.pk, self.followup.pk])
+        self.assertContains(result, "Respuesta pendiente")
+        self.assertContains(result, "PDF CPC no disponible")
+        self.assertEqual(len(self.client.get(reverse("letters"), {"q": "sin coincidencia"}).context["expedients"]), 0)
+
+    def test_movement_edit_updates_shared_response_and_equipment(self):
+        self.followup.purpose = Letter.Purpose.DEMOBILIZATION
+        self.followup.save()
+        equipment = Equipment.objects.create(code="V-1", equipment_type="Volquete")
+        movement = EquipmentMovement.objects.create(equipment=equipment, request_letter=self.followup, status=EquipmentMovement.Status.REQUESTED, movement_date=date(2026, 1, 4), equipment_type="Volquete", created_by=self.user)
+        data = {"cpc_full_number": self.followup.full_number, "cpc_date": "2026-01-03", "reception_date": "", "aam_full_number": "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0004", "aam_date": "2026-01-05", "equipment_code": "V-2", "equipment_type": "Volquete", "movement_date": "2026-01-06", "brand": "Marca", "model": "Modelo", "serial": "123", "year": "2020"}
+        result = self.client.post(reverse("edit_movement", args=[movement.pk]), data)
+        self.assertRedirects(result, reverse("letters"))
+        movement.refresh_from_db()
+        self.assertEqual(movement.equipment.code, "V-2")
+        self.assertEqual(movement.status, EquipmentMovement.Status.AUTHORIZED)
+        self.assertEqual(movement.equipment.operational_status, Equipment.OperationalStatus.RETIRED)
+        self.assertEqual(movement.response_letter.full_number, data["aam_full_number"])
+        self.assertTrue(AuditEvent.objects.filter(action=AuditEvent.Action.UPDATE, object_type="Letter").exists())
+
+    def test_delete_preserves_followup_and_login_required(self):
+        self.client.post(reverse("delete_letter", args=[self.cpc.pk]))
+        self.followup.refresh_from_db()
+        self.assertIsNone(self.followup.predecessor_response_id)
+        self.client.logout()
+        self.assertRedirects(self.client.get(reverse("letters")), f"{reverse('login')}?next={reverse('letters')}")

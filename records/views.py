@@ -12,11 +12,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from extractor import ExtractionError
 
 from .exports import EXPORT_HEADERS, record_values, workbook_bytes
-from .forms import ManualRecordForm, PresentationEditForm, UploadLettersForm
-from .models import Letter, Presentation
-from .selectors import dashboard_metrics, filtered_records
+from .forms import LetterEditForm, ManualRecordForm, MovementEditForm, PresentationEditForm, UploadLettersForm
+from .models import EquipmentMovement, Letter, Presentation
+from .selectors import dashboard_metrics, filtered_records, letter_expedients
 from .services import persist_preview, prepare_preview
-from .use_cases import create_manual_record, delete_cpc_letter, update_presentation
+from .use_cases import create_manual_record, delete_cpc_letter, update_letter_and_movement, update_presentation
+
+
+@login_required
+def profile(request):
+    return render(request, "records/profile.html")
 
 
 @login_required
@@ -131,7 +136,7 @@ def delete_letter(request, pk):
 def export_csv(request):
     records, _, _, _ = filtered_records(request.GET)
     response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = 'attachment; filename="registros-krys.csv"'
+    response["Content-Disposition"] = 'attachment; filename="registros-ks.csv"'
     response.write("\ufeff")
     writer = csv.writer(response)
     writer.writerow(EXPORT_HEADERS)
@@ -147,5 +152,40 @@ def export_xlsx(request):
         workbook_bytes(records),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    response["Content-Disposition"] = 'attachment; filename="registros-krys.xlsx"'
+    response["Content-Disposition"] = 'attachment; filename="registros-ks.xlsx"'
     return response
+
+
+@login_required
+def letters(request):
+    return render(request, "records/letters.html", {"expedients": letter_expedients(request.GET), "query": request.GET.get("q", ""), "status": request.GET.get("status", "")})
+
+
+@login_required
+def edit_letter(request, pk):
+    letter = get_object_or_404(Letter, pk=pk, direction=Letter.Direction.CPC_AAM)
+    form = LetterEditForm.from_letter(letter, request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            update_letter_and_movement(letter, form.cleaned_data, request.user)
+        except (IntegrityError, ValidationError) as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, "Carta actualizada.")
+            return redirect("letters")
+    return render(request, "records/edit_letter.html", {"form": form, "letter": letter})
+
+
+@login_required
+def edit_movement(request, pk):
+    movement = get_object_or_404(EquipmentMovement.objects.select_related("request_letter", "equipment"), pk=pk)
+    form = MovementEditForm.from_movement(movement, request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            update_letter_and_movement(movement.request_letter, form.cleaned_data, request.user, movement)
+        except (IntegrityError, ValidationError) as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, "Desmovilización actualizada.")
+            return redirect("letters")
+    return render(request, "records/edit_letter.html", {"form": form, "letter": movement.request_letter, "movement": movement})

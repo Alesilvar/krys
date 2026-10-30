@@ -1,4 +1,4 @@
-# Krys · control documental SST
+# KS · control documental SST
 
 Primera versión web para registrar cartas CPC, respuestas AAM y una fila por
 equipo. Extrae datos de PDF con texto seleccionable, permite revisarlos antes
@@ -32,7 +32,7 @@ de guardar y mantiene los archivos como respaldo.
 
 ## Arquitectura
 
-Krys es un monolito modular: se ejecuta y despliega como una sola aplicación,
+KS es un monolito modular: se ejecuta y despliega como una sola aplicación,
 pero el módulo `records` separa sus responsabilidades para evitar que las
 reglas de negocio dependan de las páginas web.
 
@@ -85,3 +85,21 @@ Las variables opcionales son `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`,
 `POSTGRES_HOST` y `POSTGRES_PORT`. Los valores predeterminados son solo para
 desarrollo local. Para publicar la aplicación se deben definir secretos y
 almacenamiento persistente del proveedor elegido.
+
+## Frontend React
+
+La interfaz usa React con componentes compartidos para navegación, formularios,
+botones y paneles. Django entrega los datos y procesa los formularios, las sesiones
+y las reglas de negocio; el panel consulta `/api/dashboard/`. Las plantillas
+existentes quedan como alternativa si JavaScript no está disponible.
+El archivo compilado está incluido para que el arranque habitual no requiera Node.
+Para modificar y volver a compilar la interfaz, instala Node.js compatible con Vite,
+luego ejecuta:
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+Las páginas existentes se muestran si JavaScript está desactivado. La autenticación y las reglas de negocio siguen en Django.

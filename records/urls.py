@@ -1,10 +1,15 @@
 from django.urls import path
 
-from . import views
+from . import views, react_api
 
 
 urlpatterns = [
+    path("api/dashboard/", react_api.dashboard_data, name="dashboard_data"),
     path("", views.dashboard, name="dashboard"),
+    path("perfil/", views.profile, name="profile"),
+    path("cartas/", views.letters, name="letters"),
+    path("carta/<int:pk>/editar/", views.edit_letter, name="edit_letter"),
+    path("desmovilizacion/<int:pk>/editar/", views.edit_movement, name="edit_movement"),
     path("cargar/", views.upload_letters, name="upload_letters"),
     path("cargar/confirmar/", views.confirm_upload, name="confirm_upload"),
     path("registro/nuevo/", views.manual_record, name="manual_record"),

@@ -1,25 +1,29 @@
-{% load static %}
+{% load static react_ui %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Krys{% endblock %}</title>
+  <title>{% block title %}KS{% endblock %}</title>
   <meta name="description" content="Control documental de equipos y evaluaciones SST">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=5">
 </head>
 <body>
+  {% react_payload %}
+  <div id="app-root"></div>
+  <div id="app-fallback">
   {% if user.is_authenticated %}
   <header class="topbar">
     <a class="brand" href="{% url 'dashboard' %}" aria-label="Ir al inicio">
-      <span class="brand-mark">K</span>
-      <span><strong>Krys</strong><small>Control documental SST</small></span>
+      <span class="brand-mark">KS</span>
+      <span><strong>KS</strong><small>Control documental SST</small></span>
     </a>
     <nav class="nav-actions" aria-label="Navegación principal">
       <a href="{% url 'dashboard' %}">Registros</a>
+      <a href="{% url 'letters' %}">Cartas</a>
       <a href="{% url 'manual_record' %}">Ingreso manual</a>
       <a class="button button-primary button-small" href="{% url 'upload_letters' %}">Cargar cartas</a>
       <span class="user-chip">{{ user.get_full_name|default:user.username }}</span>
@@ -36,5 +40,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  </div>
+  <script type="module" src="{% static 'react/app.js' %}?v=4"></script>
 </body>
 </html>

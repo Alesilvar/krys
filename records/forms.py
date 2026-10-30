@@ -113,6 +113,7 @@ class PresentationEditForm(forms.Form):
             evaluation = presentation.evaluation
         except Evaluation.DoesNotExist:
             evaluation = None
+        response = getattr(presentation.cpc_letter, "response_letter", None)
         kwargs.setdefault(
             "initial",
             {
@@ -123,8 +124,8 @@ class PresentationEditForm(forms.Form):
                 "equipment_code": presentation.equipment.code,
                 "result": evaluation.result if evaluation else "",
                 "detail": evaluation.detail if evaluation else "",
-                "aam_full_number": evaluation.response_letter.full_number if evaluation else "",
-                "aam_date": evaluation.response_letter.letter_date if evaluation else None,
+                "aam_full_number": response.full_number if response else "",
+                "aam_date": response.letter_date if response else None,
                 "additional_data": presentation.additional_data,
             },
         )
@@ -201,3 +202,62 @@ class ManualRecordForm(forms.Form):
             if upload and (upload.content_type not in {"application/pdf", "application/x-pdf"}):
                 self.add_error(field, "El respaldo debe ser un PDF.")
         return cleaned
+
+
+class LetterEditForm(PresentationEditForm):
+    """Datos compartidos de una carta y su respuesta."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in ("equipment_type", "equipment_code", "result", "detail", "additional_data"):
+            self.fields.pop(field, None)
+        self.fields["reception_date"].required = False
+
+    @classmethod
+    def from_letter(cls, letter, *args, **kwargs):
+        response = getattr(letter, "response_letter", None)
+        kwargs.setdefault("initial", {
+            "cpc_full_number": letter.full_number, "cpc_date": letter.letter_date,
+            "reception_date": letter.reception_date,
+            "aam_full_number": response.full_number if response else "",
+            "aam_date": response.letter_date if response else None,
+        })
+        return cls(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        for field in ("cpc_pdf", "aam_pdf"):
+            upload = cleaned.get(field)
+            if upload and upload.content_type not in {"application/pdf", "application/x-pdf"}:
+                self.add_error(field, "El respaldo debe ser un PDF.")
+        return cleaned
+
+
+class MovementEditForm(LetterEditForm):
+    equipment_code = forms.CharField(label="Placa / código", max_length=40)
+    equipment_type = forms.CharField(label="Tipo de equipo", max_length=100)
+    movement_date = forms.DateField(label="Fecha de salida", widget=forms.DateInput(attrs={"type": "date"}))
+    brand = forms.CharField(label="Marca", max_length=80, required=False)
+    model = forms.CharField(label="Modelo", max_length=120, required=False)
+    serial = forms.CharField(label="Serie", max_length=120, required=False)
+    year = forms.IntegerField(label="Año", min_value=1, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # LetterEditForm removes fields shared with presentation forms.
+        self.fields["equipment_code"] = forms.CharField(label="Placa / código", max_length=40)
+        self.fields["equipment_type"] = forms.CharField(label="Tipo de equipo", max_length=100)
+
+    @classmethod
+    def from_movement(cls, movement, *args, **kwargs):
+        response = getattr(movement.request_letter, "response_letter", None)
+        kwargs.setdefault("initial", {
+            "cpc_full_number": movement.request_letter.full_number,
+            "cpc_date": movement.request_letter.letter_date,
+            "reception_date": movement.request_letter.reception_date,
+            "aam_full_number": response.full_number if response else "",
+            "aam_date": response.letter_date if response else None,
+            "equipment_code": movement.equipment.code, "equipment_type": movement.equipment_type,
+            "movement_date": movement.movement_date, "brand": movement.brand,
+            "model": movement.model, "serial": movement.serial, "year": movement.year,
+        })
+        return cls(*args, **kwargs)

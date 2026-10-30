@@ -214,3 +214,47 @@ def delete_cpc_letter(letter, user):
     for name in files:
         default_storage.delete(name)
     return number
+
+
+@transaction.atomic
+def update_letter_and_movement(letter, data, user, movement=None):
+    """Edita la pareja y, opcionalmente, un equipo de desmovilización."""
+    from .models import EquipmentMovement
+    from django.utils import timezone
+    before = {"cpc": letter.full_number, "aam": getattr(getattr(letter, "response_letter", None), "full_number", "")}
+    response = getattr(letter, "response_letter", None)
+    if response and not data["aam_full_number"]:
+        raise ValidationError("No se puede quitar una respuesta existente desde la edición.")
+    letter.full_number = data["cpc_full_number"]
+    letter.correlative = letter_correlative(letter.full_number)
+    letter.letter_date = data["cpc_date"]
+    letter.reception_date = data["reception_date"]
+    if data["cpc_pdf"]:
+        letter.pdf = data["cpc_pdf"]
+    letter.save()
+    if data["aam_full_number"]:
+        if response is None:
+            response = Letter(direction=Letter.Direction.AAM_CPC, response_to=letter, created_by=user, source=Letter.Source.MANUAL, purpose=letter.purpose)
+        response.full_number = data["aam_full_number"]
+        response.correlative = letter_correlative(response.full_number)
+        response.letter_date = data["aam_date"]
+        if data["aam_pdf"]:
+            response.pdf = data["aam_pdf"]
+        response.save()
+    affected = set(letter.requested_movements.values_list("equipment_id", flat=True))
+    if movement:
+        affected.add(movement.equipment_id)
+        equipment, _ = Equipment.objects.get_or_create(code=data["equipment_code"].strip().upper())
+        movement.equipment = equipment
+        movement.equipment_type = ensure_equipment_type(equipment, data["equipment_type"])
+        for field in ("movement_date", "brand", "model", "serial", "year"):
+            setattr(movement, field, data[field])
+        movement.save()
+        affected.add(equipment.pk)
+    if response and letter.purpose == Letter.Purpose.DEMOBILIZATION:
+        letter.requested_movements.exclude(response_letter=response, status=EquipmentMovement.Status.AUTHORIZED).update(
+            response_letter=response, status=EquipmentMovement.Status.AUTHORIZED, updated_at=timezone.now()
+        )
+    for equipment in Equipment.objects.filter(pk__in=affected):
+        refresh_equipment_status(equipment)
+    AuditEvent.objects.create(user=user, action=AuditEvent.Action.UPDATE, object_type="Letter", object_id=str(letter.pk), details={"before": before, "after": {key: str(value) if value is not None else "" for key, value in data.items()}})

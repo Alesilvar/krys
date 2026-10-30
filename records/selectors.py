@@ -136,3 +136,38 @@ def dashboard_metrics():
         "inventory_by_type": inventory,
         "inventory_total": sum(item["total"] for item in inventory),
     }
+
+
+def letter_expedients(params):
+    """Agrupa cartas CPC por sus relaciones de subsanación, sin duplicarlas."""
+    letters = list(Letter.objects.filter(direction=Letter.Direction.CPC_AAM).select_related(
+        "response_letter", "predecessor_response__response_to"
+    ).prefetch_related("presentations__equipment", "presentations__evaluation", "requested_movements__equipment"))
+    by_id = {letter.pk: letter for letter in letters}
+    groups = {}
+    for letter in letters:
+        current, seen = letter, set()
+        while current.predecessor_response_id and current.pk not in seen:
+            seen.add(current.pk)
+            parent = by_id.get(current.predecessor_response.response_to_id)
+            if not parent or parent.pk in seen:
+                break
+            current = parent
+        groups.setdefault(current.pk, []).append(letter)
+    query = params.get("q", "").strip().casefold()
+    status = params.get("status", "")
+    expedients = []
+    for group in groups.values():
+        group.sort(key=lambda item: (item.letter_date, item.created_at, item.pk))
+        def matches(letter):
+            response = getattr(letter, "response_letter", None)
+            text = [letter.full_number, response.full_number if response else ""]
+            text += [p.equipment.code for p in letter.presentations.all()]
+            text += [m.equipment.code for m in letter.requested_movements.all()]
+            return (not query or any(query in value.casefold() for value in text)) and (
+                status not in ("pending", "answered") or bool(response) == (status == "answered")
+            )
+        if any(matches(letter) for letter in group):
+            expedients.append(group)
+    expedients.sort(key=lambda group: (group[0].letter_date, group[0].pk), reverse=True)
+    return expedients
