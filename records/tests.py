@@ -699,3 +699,45 @@ class LetterNumberValidationTests(TestCase):
         for value in ('0', '-1', '2147483648'):
             with self.assertRaises(ValidationError):
                 field.clean(value)
+
+class EvaluationImportConflictTests(TestCase):
+    def setUp(self):
+        from .services import evaluation_snapshot
+        self.user = get_user_model().objects.create_user('import-conflict')
+        self.cpc = Letter.objects.create(full_number='CPC-conflict', correlative=991, direction='CPC_AAM', letter_date=date(2026,1,1), created_by=self.user)
+        self.aam = Letter.objects.create(full_number='AAM-conflict', correlative=991, direction='AAM_CPC', letter_date=date(2026,1,2), response_to=self.cpc, created_by=self.user)
+        self.equipment = Equipment.objects.create(code='CONFLICT', equipment_type='Volquete')
+        self.presentation = Presentation.objects.create(cpc_letter=self.cpc, equipment=self.equipment, equipment_type='Volquete', created_by=self.user)
+        self.evaluation = Evaluation.objects.create(presentation=self.presentation, response_letter=self.aam, result='OBSERVED', detail='Manual', updated_by=self.user)
+        self.preview = {'batch_id': 'unused-test', 'documents': [], 'warnings': [], 'movement_rows': [], 'rows': [{
+            'cpc_full_number': self.cpc.full_number, 'equipment_code': 'CONFLICT', 'equipment_type': 'Volquete',
+            'row_index': 1, 'aam_full_number': self.aam.full_number, 'result': 'Aprobado', 'detail': 'PDF',
+            'evaluation_snapshot': evaluation_snapshot(self.cpc.full_number, 'CONFLICT'), 'evaluation_conflict': True}]}
+        self.media = tempfile.TemporaryDirectory()
+        self.override = override_settings(MEDIA_ROOT=Path(self.media.name))
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.media.cleanup()
+
+    def test_existing_value_is_preserved_by_default(self):
+        persist_preview(self.preview, {}, self.user)
+        self.evaluation.refresh_from_db()
+        self.assertEqual(self.evaluation.detail, 'Manual')
+
+    def test_explicit_replacement_is_audited(self):
+        persist_preview(self.preview, {'replace_evaluation_1': '1'}, self.user)
+        self.evaluation.refresh_from_db()
+        self.assertEqual((self.evaluation.result, self.evaluation.detail), ('APPROVED', 'PDF'))
+        event = AuditEvent.objects.get(object_type='Evaluation')
+        self.assertEqual(event.details['before']['detail'], 'Manual')
+        self.assertEqual(event.details['after']['detail'], 'PDF')
+
+    def test_changed_evaluation_rejects_stale_preview(self):
+        self.evaluation.detail = 'Cambio posterior'
+        self.evaluation.save()
+        with self.assertRaises(ExtractionError):
+            persist_preview(self.preview, {'replace_evaluation_1': '1'}, self.user)
+        self.evaluation.refresh_from_db()
+        self.assertEqual(self.evaluation.detail, 'Cambio posterior')

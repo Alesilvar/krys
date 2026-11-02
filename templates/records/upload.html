@@ -38,7 +38,7 @@
           <td>{{ row.cpc_correlative }}</td><td>{{ row.cpc_date }}</td><td>{{ row.procedure_type }}</td><td>{{ row.equipment_type }}</td><td><strong>{{ row.equipment_code }}</strong></td>
           <td><span class="status status-approved">Activo</span></td>
           <td><span class="status {% if row.result == 'Aprobado' %}status-approved{% else %}status-observed{% endif %}">{{ row.result|default:'Pendiente' }}</span></td>
-          <td class="detail-cell">{{ row.detail|linebreaksbr }}</td><td>{{ row.aam_correlative }}</td>
+          <td class="detail-cell">{{ row.detail|linebreaksbr }}{% if row.evaluation_conflict %}<p><strong>Evaluación actual:</strong> {{ row.evaluation_snapshot.result }} · {{ row.evaluation_snapshot.detail }}</p><label><input type="checkbox" name="replace_evaluation_{{ row.row_index }}" value="1"> Reemplazar la evaluación actual con la del PDF</label>{% endif %}</td><td>{{ row.aam_correlative }}</td>
           <td><textarea name="additional_{{ row.row_index }}" rows="2" aria-label="Dato adicional para {{ row.equipment_code }}"></textarea></td>
         </tr>{% endfor %}
         {% for row in preview.movement_rows %}<tr>

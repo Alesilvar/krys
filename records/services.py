@@ -163,6 +163,10 @@ def prepare_preview(uploaded_files):
             data["cpc_full_number"] = cpc_number
             data["aam_full_number"] = row.aam_full_number
             data["row_index"] = index
+            data["evaluation_snapshot"] = evaluation_snapshot(cpc_number, row.equipment_code)
+            current = data["evaluation_snapshot"]
+            incoming = Evaluation.Result.APPROVED if row.result == "Aprobado" else Evaluation.Result.OBSERVED
+            data["evaluation_conflict"] = bool(current and row.result and (current["result"] != incoming or current["detail"] != row.detail))
             serialized_rows.append(data)
 
         movement_rows = []
@@ -227,12 +231,32 @@ def prepare_preview(uploaded_files):
         raise
 
 
+def evaluation_snapshot(cpc_number, equipment_code, lock=False):
+    presentations = Presentation.objects.filter(cpc_letter__full_number=cpc_number, equipment__code__iexact=equipment_code)
+    if lock:
+        presentations = presentations.select_for_update()
+    presentation = presentations.first()
+    if not presentation:
+        return None
+    evaluations = Evaluation.objects.filter(presentation=presentation)
+    if lock:
+        evaluations = evaluations.select_for_update()
+    evaluation = evaluations.first()
+    if not evaluation:
+        return None
+    return {"id": evaluation.pk, "result": evaluation.result, "detail": evaluation.detail,
+            "updated_at": evaluation.updated_at.isoformat(), "response_id": evaluation.response_letter_id}
+
+
 @transaction.atomic
 def persist_preview(preview, post_data, user):
     created_letters = {}
     stored_files = []
     affected_equipment = set()
     try:
+        for row in preview["rows"]:
+            if "evaluation_snapshot" not in row or evaluation_snapshot(row["cpc_full_number"], row["equipment_code"], lock=True) != row["evaluation_snapshot"]:
+                raise ExtractionError("La evaluación cambió desde la vista previa. Vuelve a cargar los archivos para revisarla.")
         for document in preview["documents"]:
             path = Path(document["path"])
             reception = None
@@ -307,6 +331,9 @@ def persist_preview(preview, post_data, user):
                     if row["result"] == "Aprobado"
                     else Evaluation.Result.OBSERVED
                 )
+                current = row["evaluation_snapshot"]
+                if current and (not row["evaluation_conflict"] or post_data.get(f"replace_evaluation_{row['row_index']}") != "1"):
+                    continue
                 Evaluation.objects.update_or_create(
                     presentation=presentation,
                     defaults={
@@ -316,6 +343,8 @@ def persist_preview(preview, post_data, user):
                         "updated_by": user,
                     },
                 )
+                if current:
+                    AuditEvent.objects.create(user=user, action=AuditEvent.Action.UPDATE, object_type="Evaluation", object_id=str(current["id"]), details={"before": current, "after": {"result": result, "detail": row["detail"], "response_letter": row["aam_full_number"]}, "source": "PDF"})
 
         for row in preview.get("movement_rows", []):
             request_letter = created_letters.get(
