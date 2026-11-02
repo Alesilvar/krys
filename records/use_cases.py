@@ -119,6 +119,16 @@ def update_presentation(presentation, data, user):
         "equipment_code": presentation.equipment.code,
         "additional_data": presentation.additional_data,
     }
+    previous_evaluation = Evaluation.objects.filter(presentation=presentation).select_related("response_letter").first()
+    previous_response = getattr(presentation.cpc_letter, "response_letter", None)
+    old.update({
+        "result": previous_evaluation.result if previous_evaluation else "",
+        "detail": previous_evaluation.detail if previous_evaluation else "",
+        "aam_full_number": previous_response.full_number if previous_response else "",
+        "aam_date": str(previous_response.letter_date) if previous_response else "",
+        "cpc_pdf": presentation.cpc_letter.pdf.name if presentation.cpc_letter.pdf else "",
+        "aam_pdf": previous_response.pdf.name if previous_response and previous_response.pdf else "",
+    })
     previous_equipment = presentation.equipment
     equipment, _ = Equipment.objects.get_or_create(
         code=data["equipment_code"].strip().upper()
@@ -184,7 +194,9 @@ def update_presentation(presentation, data, user):
         details={
             "before": old,
             "after": {
-                key: str(value) if value is not None else "" for key, value in data.items()
+                **{key: str(value) if value is not None else "" for key, value in data.items()},
+                "cpc_pdf": cpc.pdf.name if cpc.pdf else "",
+                "aam_pdf": response.pdf.name if response and response.pdf else "",
             },
         },
     )
@@ -221,7 +233,21 @@ def update_letter_and_movement(letter, data, user, movement=None):
     """Edita la pareja y, opcionalmente, un equipo de desmovilización."""
     from .models import EquipmentMovement
     from django.utils import timezone
-    before = {"cpc": letter.full_number, "aam": getattr(getattr(letter, "response_letter", None), "full_number", "")}
+    old_response = getattr(letter, "response_letter", None)
+    before = {
+        "cpc_full_number": letter.full_number,
+        "cpc_date": str(letter.letter_date),
+        "reception_date": str(letter.reception_date or ""),
+        "cpc_pdf": letter.pdf.name if letter.pdf else "",
+        "aam_full_number": old_response.full_number if old_response else "",
+        "aam_date": str(old_response.letter_date) if old_response else "",
+        "aam_pdf": old_response.pdf.name if old_response and old_response.pdf else "",
+    }
+    if movement:
+        before.update({"equipment_code": movement.equipment.code,
+                       "equipment_type": movement.equipment_type,
+                       **{field: str(getattr(movement, field) or "") for field in
+                          ("movement_date", "brand", "model", "serial", "year")}})
     response = getattr(letter, "response_letter", None)
     if response and not data["aam_full_number"]:
         raise ValidationError("No se puede quitar una respuesta existente desde la edición.")
@@ -257,4 +283,4 @@ def update_letter_and_movement(letter, data, user, movement=None):
         )
     for equipment in Equipment.objects.filter(pk__in=affected):
         refresh_equipment_status(equipment)
-    AuditEvent.objects.create(user=user, action=AuditEvent.Action.UPDATE, object_type="Letter", object_id=str(letter.pk), details={"before": before, "after": {key: str(value) if value is not None else "" for key, value in data.items()}})
+    AuditEvent.objects.create(user=user, action=AuditEvent.Action.UPDATE, object_type="Letter", object_id=str(letter.pk), details={"before": before, "after": {**{key: str(value) if value is not None else "" for key, value in data.items()}, "cpc_pdf": letter.pdf.name if letter.pdf else "", "aam_pdf": response.pdf.name if response and response.pdf else ""}})
