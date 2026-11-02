@@ -4,7 +4,7 @@ import csv
 
 from django.contrib import messages
 from django.contrib.messages import get_messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -66,6 +66,7 @@ def dashboard(request):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def upload_letters(request):
     preview = request.session.get("upload_preview")
     if request.method == "POST":
@@ -88,6 +89,7 @@ def upload_letters(request):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def confirm_upload(request):
     if request.method != "POST":
         return redirect("upload_letters")
@@ -110,6 +112,7 @@ def confirm_upload(request):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def manual_record(request):
     form = ManualRecordForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
@@ -125,6 +128,7 @@ def manual_record(request):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def edit_presentation(request, pk):
     presentation = get_object_or_404(
         Presentation.objects.select_related(
@@ -151,6 +155,7 @@ def edit_presentation(request, pk):
 
 
 @login_required
+@permission_required("records.remove_records", raise_exception=True)
 def delete_letter(request, pk):
     letter = get_object_or_404(Letter, pk=pk, direction=Letter.Direction.CPC_AAM)
     if request.method == "POST":
@@ -190,6 +195,7 @@ def letters(request):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def edit_letter(request, pk):
     letter = get_object_or_404(Letter, pk=pk, direction=Letter.Direction.CPC_AAM)
     form = LetterEditForm.from_letter(letter, request.POST or None, request.FILES or None)
@@ -205,6 +211,7 @@ def edit_letter(request, pk):
 
 
 @login_required
+@permission_required("records.manage_records", raise_exception=True)
 def edit_movement(request, pk):
     movement = get_object_or_404(EquipmentMovement.objects.select_related("request_letter", "equipment"), pk=pk)
     form = MovementEditForm.from_movement(movement, request.POST or None, request.FILES or None)

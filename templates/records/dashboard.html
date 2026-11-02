@@ -8,7 +8,7 @@
     <h1>Seguimiento de cartas y evaluaciones</h1>
     <p>Consulta cada presentación, su resultado SST y el estado operativo del equipo.</p>
   </div>
-  <div class="hero-actions"><a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a></div>
+  {% if perms.records.manage_records %}<div class="hero-actions"><a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a></div>{% endif %}
 </section>
 
 <section class="stats-grid" aria-label="Resumen">
@@ -72,10 +72,10 @@
             {% if record.response_letter %}<strong>{{ record.response_letter.correlative }}</strong><small>{{ record.response_letter.letter_date|date:'d/m/Y' }}</small>{% else %}—{% endif %}
           </td>
           <td class="row-actions">
-            {% if record.kind == 'presentation' %}<a href="{% url 'edit_presentation' record.source.pk %}">Editar</a>{% endif %}
+            {% if record.kind == 'presentation' and perms.records.manage_records %}<a href="{% url 'edit_presentation' record.source.pk %}">Editar</a>{% endif %}
             {% if record.cpc_letter.pdf %}<a href="{% url 'letter_pdf' record.cpc_letter.pk %}" target="_blank">PDF CPC</a>{% endif %}
             {% if record.response_letter and record.response_letter.pdf %}<a href="{% url 'letter_pdf' record.response_letter.pk %}" target="_blank">PDF AAM</a>{% endif %}
-            <a class="danger-link" href="{% url 'delete_letter' record.cpc_letter.pk %}">Eliminar carta</a>
+            {% if perms.records.remove_records %}<a class="danger-link" href="{% url 'delete_letter' record.cpc_letter.pk %}">Eliminar carta</a>{% endif %}
           </td>
         </tr>
       {% empty %}

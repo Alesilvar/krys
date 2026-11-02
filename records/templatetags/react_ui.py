@@ -63,6 +63,8 @@ def build_payload(context):
     request = context['request']
     page = request.resolver_match.url_name
     data = {'page': page, 'csrf': get_token(request), 'authenticated': request.user.is_authenticated,
+            'canEdit': request.user.has_perm('records.manage_records'),
+            'canDelete': request.user.has_perm('records.remove_records'),
             'username': (request.user.get_full_name() or request.user.get_username()) if request.user.is_authenticated else '',
             'messages': [{'text': str(m), 'tags': m.tags} for m in context.get('messages', [])]}
     if page == 'profile' and request.user.is_authenticated:

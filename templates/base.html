@@ -24,8 +24,8 @@
     <nav class="nav-actions" aria-label="Navegación principal">
       <a href="{% url 'dashboard' %}">Registros</a>
       <a href="{% url 'letters' %}">Cartas</a>
-      <a href="{% url 'manual_record' %}">Ingreso manual</a>
-      <a class="button button-primary button-small" href="{% url 'upload_letters' %}">Cargar cartas</a>
+      {% if perms.records.manage_records %}<a href="{% url 'manual_record' %}">Ingreso manual</a>
+      <a class="button button-primary button-small" href="{% url 'upload_letters' %}">Cargar cartas</a>{% endif %}
       <span class="user-chip">{{ user.get_full_name|default:user.username }}</span>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button" type="submit">Salir</button></form>
     </nav>

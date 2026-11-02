@@ -34,8 +34,8 @@ def dashboard_data(request):
             'detail': evaluation.detail if evaluation else '',
             'response': response.correlative if response else '—',
             'responseDate': date(response.letter_date) if response else '',
-            'editUrl': reverse('edit_presentation', args=[record['source'].pk]) if record['kind'] == 'presentation' else None,
-            'deleteUrl': reverse('delete_letter', args=[letter.pk]),
+            'editUrl': reverse('edit_presentation', args=[record['source'].pk]) if record['kind'] == 'presentation' and request.user.has_perm('records.manage_records') else None,
+            'deleteUrl': reverse('delete_letter', args=[letter.pk]) if request.user.has_perm('records.remove_records') else None,
             'cpcPdf': pdf(letter), 'responsePdf': pdf(response),
         })
-    return JsonResponse({'metrics': dashboard_metrics(), 'records': rows, 'filters': {'q': query, 'result': result, 'status': status}})
+    return JsonResponse({'canEdit': request.user.has_perm('records.manage_records'), 'metrics': dashboard_metrics(), 'records': rows, 'filters': {'q': query, 'result': result, 'status': status}})

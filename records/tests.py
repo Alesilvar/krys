@@ -202,6 +202,8 @@ class TestRecordModels(TestCase):
 class TestWebFlow(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("aleu", password="safe-test-password")
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
 
     def test_dashboard_requires_login(self):
@@ -563,6 +565,8 @@ class TestPdfImport(TestCase):
 class TestLetterExpedients(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("expedientes", password="test")
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         self.cpc = Letter.objects.create(full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", correlative=1, direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 1), created_by=self.user)
         self.response = Letter.objects.create(full_number="PSR2-F2-AAM-CPC-GEN-GLB-CAR-0002", correlative=2, direction=Letter.Direction.AAM_CPC, letter_date=date(2026, 1, 2), response_to=self.cpc, created_by=self.user)
@@ -623,3 +627,22 @@ class SecurityRegressionTests(TestCase):
             self.assertEqual(b''.join(response.streaming_content), b'%PDF-test')
             response.close()
             self.assertEqual(self.client.get(letter.pdf.url).status_code, 404)
+
+class RecordPermissionsTests(TestCase):
+    def test_new_user_can_read_but_cannot_modify(self):
+        user = get_user_model().objects.create_user('reader', password='secure-password')
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(reverse('dashboard')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('manual_record')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('confirm_upload')).status_code, 403)
+
+    def test_editor_can_edit_but_not_delete(self):
+        from django.contrib.auth.models import Group
+        user = get_user_model().objects.create_user('editor', password='secure-password')
+        user.groups.add(Group.objects.get(name='Edición'))
+        letter = Letter.objects.create(full_number='TEST-1', correlative=1,
+            direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 1), created_by=user)
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(reverse('manual_record')).status_code, 200)
+        self.assertEqual(self.client.post(reverse('delete_letter', args=[letter.pk])).status_code, 403)
+        self.assertTrue(Letter.objects.filter(pk=letter.pk).exists())

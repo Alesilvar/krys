@@ -57,6 +57,8 @@ class Letter(models.Model):
 
     class Meta:
         ordering = ["letter_date", "created_at"]
+        permissions = [("manage_records", "Puede crear y editar registros"),
+                       ("remove_records", "Puede eliminar registros")]
 
     def __str__(self):
         return self.full_number

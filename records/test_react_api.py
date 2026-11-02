@@ -16,6 +16,8 @@ class DashboardApiTests(TestCase):
         self.assertEqual(self.client.get(reverse('dashboard_data')).status_code, 302)
 
     def test_records_and_filters(self):
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         response = self.client.get(reverse('dashboard_data'), {'q': 'ABC-123'})
         self.assertEqual(response.status_code, 200)
@@ -38,6 +40,8 @@ class DashboardApiTests(TestCase):
         self.assertFalse(login['authenticated'])
         failed = self.payload(self.client.post(reverse('login'), {'username': 'nobody', 'password': 'secret-to-hide'}))
         self.assertNotIn('secret-to-hide', str(failed))
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         for name in ('dashboard', 'letters', 'manual_record', 'upload_letters'):
             response = self.client.get(reverse(name))
@@ -52,6 +56,8 @@ class DashboardApiTests(TestCase):
         self.assertTrue(number['errors'])
 
     def test_edit_and_delete_payloads(self):
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         presentation = Presentation.objects.get()
         for name, pk in [('edit_presentation', presentation.pk), ('edit_letter', presentation.cpc_letter_id), ('delete_letter', presentation.cpc_letter_id)]:
@@ -62,6 +68,8 @@ class DashboardApiTests(TestCase):
         self.assertEqual(data['expedients'][0][0]['presentations'][0]['code'], 'ABC-123')
 
     def test_preview_payload_excludes_internal_paths(self):
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         session = self.client.session
         session['upload_preview'] = {'batch_id': 'internal', 'documents': [{'correlative': 1, 'direction': 'CPC_AAM', 'path': '/private/file.pdf'}], 'rows': [], 'movement_rows': [], 'warnings': []}
@@ -76,12 +84,16 @@ class DashboardApiTests(TestCase):
         self.user.first_name = 'Ale'
         self.user.email = 'ale@example.test'
         self.user.save()
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.payload(response)['profile'], {'username': 'react-test', 'name': 'Ale', 'email': 'ale@example.test'})
 
     def test_client_page_responses_and_validation(self):
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         header = {'HTTP_X_KS_CLIENT': 'react'}
         response = self.client.get(reverse('letters'), **header)
@@ -103,6 +115,8 @@ class DashboardApiTests(TestCase):
         from pathlib import Path
         from django.core.files.uploadedfile import SimpleUploadedFile
         from django.test import override_settings
+        self.user.is_superuser = True
+        self.user.save()
         self.client.force_login(self.user)
         samples = Path('/home/aleu/Documentos/proyecto-krys')
         names = ['PSR2-F2-CPC-AAM-GEN-GLB-CAR-0150.pdf', 'PSR2-F2-AAM-CPC-GEN-GLB-CAR-0118.pdf']

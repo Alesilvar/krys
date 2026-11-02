@@ -104,3 +104,13 @@ npm run build
 ```
 
 Las páginas existentes se muestran si JavaScript está desactivado. La autenticación y las reglas de negocio siguen en Django.
+
+## Permisos de la aplicación
+
+Todas las cuentas creadas antes de aplicar la migración de permisos conservan
+acceso completo a los registros. Las cuentas nuevas pueden consultar y exportar;
+para permitirles modificar datos, un superusuario puede asignarlas desde `/admin/`
+al grupo **Edición**. El grupo **Administración de registros** también permite
+eliminar cartas; **Consulta** es opcional para identificar a quienes solo leen.
+Los permisos se comprueban en el servidor. Las cuentas de superusuario conservan
+todos los permisos. Los PDF se sirven mediante una ruta autenticada.
