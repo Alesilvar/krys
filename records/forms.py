@@ -23,6 +23,23 @@ def validate_letter_number(value, expected_direction):
     return value
 
 
+def validate_pdf_upload(upload):
+    if not upload:
+        return upload
+    if upload.size > 10 * 1024 * 1024:
+        raise ValidationError("El PDF supera el límite de 10 MB.")
+    if upload.content_type not in {"application/pdf", "application/x-pdf"}:
+        raise ValidationError("El respaldo debe ser un PDF.")
+    position = upload.tell()
+    try:
+        upload.seek(0)
+        if upload.read(5) != b"%PDF-":
+            raise ValidationError("El archivo no contiene una cabecera PDF válida.")
+    finally:
+        upload.seek(position)
+    return upload
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -38,7 +55,7 @@ class MultipleFileField(forms.FileField):
             raise ValidationError("Selecciona al menos un archivo PDF.")
         if len(data) > 20:
             raise ValidationError("Puedes cargar hasta 20 archivos por lote.")
-        return [clean_one(item, initial) for item in data]
+        return [validate_pdf_upload(clean_one(item, initial)) for item in data]
 
 
 class UploadLettersForm(forms.Form):
@@ -87,6 +104,12 @@ class PresentationEditForm(forms.Form):
         required=False,
         widget=forms.FileInput(attrs={"accept": ".pdf"}),
     )
+
+    def clean_cpc_pdf(self):
+        return validate_pdf_upload(self.cleaned_data.get("cpc_pdf"))
+
+    def clean_aam_pdf(self):
+        return validate_pdf_upload(self.cleaned_data.get("aam_pdf"))
 
     def clean_cpc_full_number(self):
         return validate_letter_number(self.cleaned_data["cpc_full_number"], "CPC-AAM")
@@ -174,6 +197,12 @@ class ManualRecordForm(forms.Form):
     aam_pdf = forms.FileField(
         label="PDF AAM de respaldo", required=False, widget=forms.FileInput(attrs={"accept": ".pdf"})
     )
+
+    def clean_cpc_pdf(self):
+        return validate_pdf_upload(self.cleaned_data.get("cpc_pdf"))
+
+    def clean_aam_pdf(self):
+        return validate_pdf_upload(self.cleaned_data.get("aam_pdf"))
 
     def clean_cpc_full_number(self):
         return validate_letter_number(self.cleaned_data["cpc_full_number"], "CPC-AAM")

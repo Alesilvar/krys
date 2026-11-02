@@ -646,3 +646,11 @@ class RecordPermissionsTests(TestCase):
         self.assertEqual(self.client.get(reverse('manual_record')).status_code, 200)
         self.assertEqual(self.client.post(reverse('delete_letter', args=[letter.pk])).status_code, 403)
         self.assertTrue(Letter.objects.filter(pk=letter.pk).exists())
+
+class UploadValidationTests(TestCase):
+    def test_empty_batch_and_fake_pdf_are_rejected(self):
+        from .forms import UploadLettersForm, validate_pdf_upload
+        self.assertFalse(UploadLettersForm({}, {}).is_valid())
+        fake = SimpleUploadedFile('fake.pdf', b'not a pdf', content_type='application/pdf')
+        with self.assertRaises(ValidationError):
+            validate_pdf_upload(fake)

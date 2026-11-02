@@ -852,13 +852,13 @@ def markdown_table(rows: Iterable[OutputRow]) -> str:
     return "\n".join(["| " + " | ".join(headers) + " |", separator, *body])
 
 
-def extract_documents(paths: list[Path]) -> tuple[list[OutputRow], list[str]]:
+def extract_documents(paths: list[Path], texts: dict[Path, str] | None = None) -> tuple[list[OutputRow], list[str]]:
     cpc_letters: list[Letter] = []
     responses: list[ParsedResponse] = []
     seen_numbers: set[str] = set()
 
     for source_order, path in enumerate(paths):
-        text = extract_pdf_text(path)
+        text = texts[path] if texts is not None else extract_pdf_text(path)
         if is_demobilization(text):
             continue
         identity = parse_letter_identity(text, path, source_order)

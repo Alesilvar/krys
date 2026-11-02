@@ -78,7 +78,7 @@ def prepare_preview(uploaded_files):
             path for path in all_paths if not is_demobilization(texts[path])
         ]
         rows, warnings = (
-            extract_documents(presentation_paths) if presentation_paths else ([], [])
+            extract_documents(presentation_paths, texts=texts) if presentation_paths else ([], [])
         )
 
         demobilization_requests = {}
@@ -344,7 +344,7 @@ def persist_preview(preview, post_data, user):
                 if response_letter
                 else EquipmentMovement.Status.REQUESTED
             )
-            EquipmentMovement.objects.update_or_create(
+            movement, created = EquipmentMovement.objects.get_or_create(
                 request_letter=request_letter,
                 equipment=equipment,
                 defaults={
@@ -359,6 +359,10 @@ def persist_preview(preview, post_data, user):
                     "created_by": user,
                 },
             )
+            if not created and response_letter:
+                movement.response_letter = response_letter
+                movement.status = status
+                movement.save(update_fields=["response_letter", "status", "updated_at"])
         for equipment in Equipment.objects.filter(pk__in=affected_equipment):
             refresh_equipment_status(equipment)
 
