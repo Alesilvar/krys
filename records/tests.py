@@ -1,3 +1,4 @@
+import os
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -23,7 +24,7 @@ from .equipment_rules import ensure_equipment_type, refresh_equipment_status
 from .selectors import current_inventory_by_type, filtered_records
 
 
-SAMPLES = Path("/home/aleu/Documentos/proyecto-krys")
+SAMPLES = Path(os.environ.get("KRYS_TEST_SAMPLES_DIR", Path(__file__).resolve().parents[2]))
 
 
 class TestRecordModels(TestCase):

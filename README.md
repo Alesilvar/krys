@@ -72,7 +72,7 @@ Para crear otra cuenta con acceso completo a la aplicación:
 .venv/bin/python manage.py test
 ```
 
-Las 42 pruebas actuales cubren los PDF aportados, formatos variables de listas
+Las pruebas cubren los PDF aportados, formatos variables de listas
 y observaciones, aprobaciones generales, cadenas de subsanación, el modelo de
 datos, la desmovilización, el inventario actual por tipo, la tabla histórica
 unificada, el ingreso manual, la importación web, la exportación y el borrado
@@ -134,3 +134,8 @@ Un respaldo debe incluir una copia coherente de PostgreSQL y del directorio
 `media/` del mismo momento. Conserva copias fuera de la máquina y ensaya la
 restauración en un entorno aislado antes de depender de ellas. No expongas
 `media/` mediante el servidor web: los PDF se entregan por la aplicación.
+
+Las pruebas de extracción utilizan las cartas PDF de ejemplo ubicadas por
+defecto en la carpeta padre del proyecto. Si están en otro lugar, define
+`KRYS_TEST_SAMPLES_DIR` con la ruta de esa carpeta antes de ejecutar las
+pruebas. Las muestras documentales no se incluyen en el repositorio.

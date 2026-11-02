@@ -1,3 +1,4 @@
+import os
 from datetime import date
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -118,7 +119,7 @@ class DashboardApiTests(TestCase):
         self.user.is_superuser = True
         self.user.save()
         self.client.force_login(self.user)
-        samples = Path('/home/aleu/Documentos/proyecto-krys')
+        samples = Path(os.environ.get('KRYS_TEST_SAMPLES_DIR', Path(__file__).resolve().parents[2]))
         names = ['PSR2-F2-CPC-AAM-GEN-GLB-CAR-0150.pdf', 'PSR2-F2-AAM-CPC-GEN-GLB-CAR-0118.pdf']
         files = [SimpleUploadedFile(name, (samples / name).read_bytes(), content_type='application/pdf') for name in names]
         with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=Path(media)):

@@ -1,3 +1,4 @@
+import os
 import unittest
 from datetime import date
 from pathlib import Path
@@ -18,14 +19,13 @@ from extractor import (
 )
 
 
-ROOT = Path("/home/aleu/Documentos/proyecto-krys")
-DOWNLOADS = Path("/home/aleu/Descargas")
+ROOT = Path(os.environ.get("KRYS_TEST_SAMPLES_DIR", Path(__file__).resolve().parent.parent))
 
 
 def sample(name):
     """Use the project copy when samples have been collected into the workspace."""
     project_copy = ROOT / name
-    return project_copy if project_copy.is_file() else DOWNLOADS / name
+    return project_copy
 SAMPLE_PDFS = [
     ROOT / "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0150.pdf",
     ROOT / "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0118.pdf",
