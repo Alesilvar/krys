@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.utils import timezone
 from django.utils.text import get_valid_filename
 
 from extractor import (
@@ -334,15 +335,13 @@ def persist_preview(preview, post_data, user):
                 current = row["evaluation_snapshot"]
                 if current and (not row["evaluation_conflict"] or post_data.get(f"replace_evaluation_{row['row_index']}") != "1"):
                     continue
-                Evaluation.objects.update_or_create(
-                    presentation=presentation,
-                    defaults={
-                        "response_letter": response_letter,
-                        "result": result,
-                        "detail": row["detail"],
-                        "updated_by": user,
-                    },
-                )
+                values = {"response_letter": response_letter, "result": result,
+                          "detail": row["detail"], "updated_by": user}
+                if current:
+                    Evaluation.objects.filter(pk=current["id"]).update(**values, updated_at=timezone.now())
+                else:
+                    # A concurrent creation must fail the unique constraint, never overwrite it.
+                    Evaluation.objects.create(presentation=presentation, **values)
                 if current:
                     AuditEvent.objects.create(user=user, action=AuditEvent.Action.UPDATE, object_type="Evaluation", object_id=str(current["id"]), details={"before": current, "after": {"result": result, "detail": row["detail"], "response_letter": row["aam_full_number"]}, "source": "PDF"})
 
