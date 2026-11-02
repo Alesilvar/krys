@@ -34,10 +34,9 @@ def presentation_values(presentation):
         evaluation = presentation.evaluation
         result = evaluation.get_result_display()
         detail = evaluation.detail
-        response = evaluation.response_letter
     except Evaluation.DoesNotExist:
         result = detail = ""
-        response = None
+    response = getattr(presentation.cpc_letter, "response_letter", None)
     return [
         "Presentación",
         presentation.owner,

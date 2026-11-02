@@ -8,7 +8,7 @@ from .models import Equipment, EquipmentMovement, Evaluation, Letter, Presentati
 def filtered_records(params):
     """Combina presentaciones y retiros en una única lista filtrable."""
     presentations = Presentation.objects.select_related(
-        "cpc_letter", "equipment", "evaluation", "evaluation__response_letter"
+        "cpc_letter", "cpc_letter__response_letter", "equipment", "evaluation", "evaluation__response_letter"
     )
     movements = EquipmentMovement.objects.select_related(
         "equipment", "request_letter", "response_letter"
@@ -67,7 +67,7 @@ def filtered_records(params):
                 "operational_status": presentation.equipment.operational_status,
                 "operational_label": presentation.equipment.get_operational_status_display(),
                 "evaluation": evaluation,
-                "response_letter": evaluation.response_letter if evaluation else None,
+                "response_letter": getattr(presentation.cpc_letter, "response_letter", None),
                 "movement": None,
                 "sort_date": presentation.cpc_letter.letter_date,
             }

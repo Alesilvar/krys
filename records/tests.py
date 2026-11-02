@@ -654,3 +654,23 @@ class UploadValidationTests(TestCase):
         fake = SimpleUploadedFile('fake.pdf', b'not a pdf', content_type='application/pdf')
         with self.assertRaises(ValidationError):
             validate_pdf_upload(fake)
+
+class PendingEvaluationResponseTests(TestCase):
+    def test_response_is_available_without_evaluation(self):
+        from .exports import presentation_values
+        user = get_user_model().objects.create_user('reader-response', password='secure-password')
+        cpc = Letter.objects.create(full_number='CPC-response-test', correlative=12,
+            direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 1), created_by=user)
+        response = Letter.objects.create(full_number='AAM-response-test', correlative=34,
+            direction=Letter.Direction.AAM_CPC, letter_date=date(2026, 1, 2), response_to=cpc, created_by=user)
+        equipment = Equipment.objects.create(code='PENDING-1')
+        presentation = Presentation.objects.create(cpc_letter=cpc, equipment=equipment,
+            equipment_type='Volquete', created_by=user)
+        rows, *_ = filtered_records({})
+        self.assertEqual(rows[0]['response_letter'], response)
+        self.assertIsNone(rows[0]['evaluation'])
+        self.assertEqual(presentation_values(presentation)[10:12], [34, '02/01/2026'])
+        self.client.force_login(user)
+        api_row = self.client.get(reverse('dashboard_data')).json()['records'][0]
+        self.assertEqual(api_row['response'], 34)
+        self.assertEqual(api_row['resultLabel'], 'Pendiente')
