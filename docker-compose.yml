@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: krys
       POSTGRES_PASSWORD: krys_dev_password
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - krys_postgres18_data:/var/lib/postgresql
     healthcheck:

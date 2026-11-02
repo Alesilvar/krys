@@ -117,6 +117,11 @@ todos los permisos. Los PDF se sirven mediante una ruta autenticada.
 
 ## Publicación y respaldos
 
+El archivo `docker-compose.yml` está destinado al desarrollo local: PostgreSQL
+solo publica su puerto en `127.0.0.1`. Las credenciales incluidas son de
+desarrollo y deben sustituirse mediante una transición coordinada antes de
+utilizar la base en un entorno compartido o de producción.
+
 En producción define `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY` (al menos 50
 caracteres aleatorios) y `DJANGO_ALLOWED_HOSTS`. Configura HTTPS antes de
 publicar: las cookies y la redirección segura se activan en ese modo. Si un
