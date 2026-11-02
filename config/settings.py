@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +28,20 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-local-krys-onl
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+if not DEBUG:
+    if SECRET_KEY == "django-insecure-local-krys-only" or len(SECRET_KEY) < 50:
+        raise ImproperlyConfigured("Define DJANGO_SECRET_KEY con al menos 50 caracteres para producción.")
+    if not os.environ.get("DJANGO_ALLOWED_HOSTS"):
+        raise ImproperlyConfigured("Define DJANGO_ALLOWED_HOSTS para producción.")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS is enabled only after HTTPS has been verified for the whole domain.
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "0"))
+    if os.environ.get("DJANGO_TRUST_PROXY_HTTPS") == "1":
+        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 
 # Application definition

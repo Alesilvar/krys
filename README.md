@@ -114,3 +114,18 @@ al grupo **Edición**. El grupo **Administración de registros** también permit
 eliminar cartas; **Consulta** es opcional para identificar a quienes solo leen.
 Los permisos se comprueban en el servidor. Las cuentas de superusuario conservan
 todos los permisos. Los PDF se sirven mediante una ruta autenticada.
+
+## Publicación y respaldos
+
+En producción define `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY` (al menos 50
+caracteres aleatorios) y `DJANGO_ALLOWED_HOSTS`. Configura HTTPS antes de
+publicar: las cookies y la redirección segura se activan en ese modo. Si un
+proxy de confianza termina HTTPS y elimina las cabeceras enviadas por clientes,
+configura `DJANGO_TRUST_PROXY_HTTPS=1`. Activa `DJANGO_HSTS_SECONDS` solo
+después de verificar HTTPS para todo el dominio. Ejecuta `manage.py check
+--deploy` con la configuración real y resuelve sus advertencias.
+
+Un respaldo debe incluir una copia coherente de PostgreSQL y del directorio
+`media/` del mismo momento. Conserva copias fuera de la máquina y ensaya la
+restauración en un entorno aislado antes de depender de ellas. No expongas
+`media/` mediante el servidor web: los PDF se entregan por la aplicación.
