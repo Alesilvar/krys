@@ -817,3 +817,19 @@ class DocumentaryStatusTests(TestCase):
         reader = get_user_model().objects.create_user('read-only')
         self.client.force_login(reader)
         self.assertEqual(self.client.post(reverse('resolve_equipment_status', args=[self.equipment.pk])).status_code, 403)
+
+class RoleAccessRegressionTests(TestCase):
+    def test_reader_can_export_and_record_admin_can_delete(self):
+        from django.contrib.auth.models import Group
+        reader = get_user_model().objects.create_user('reader-role')
+        admin = get_user_model().objects.create_user('records-admin')
+        admin.groups.add(Group.objects.get(name='Administración de registros'))
+        letter = Letter.objects.create(full_number='CPC-role', correlative=880,
+            direction=Letter.Direction.CPC_AAM, letter_date=date(2026,1,1), created_by=admin)
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get(reverse('export_csv')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('export_xlsx')).status_code, 200)
+        self.assertEqual(self.client.post(reverse('delete_letter', args=[letter.pk])).status_code, 403)
+        self.client.force_login(admin)
+        self.assertEqual(self.client.post(reverse('delete_letter', args=[letter.pk])).status_code, 302)
+        self.assertFalse(Letter.objects.filter(pk=letter.pk).exists())
