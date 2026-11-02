@@ -10,7 +10,7 @@ def date(value):
 
 
 def pdf(letter):
-    return letter.pdf.url if letter and letter.pdf else None
+    return reverse("letter_pdf", args=[letter.pk]) if letter and letter.pdf else None
 
 
 @login_required

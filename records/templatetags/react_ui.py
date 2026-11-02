@@ -1,6 +1,7 @@
 """Datos de presentación para los componentes React; las validaciones viven en Django."""
 from datetime import date, datetime
 from django import forms, template
+from django.urls import reverse
 from django.utils.html import json_script
 from django.middleware.csrf import get_token
 from records.models import Evaluation
@@ -30,7 +31,7 @@ def serialize_form(form):
 
 
 def pdf(letter):
-    return letter.pdf.url if letter and letter.pdf else None
+    return reverse("letter_pdf", args=[letter.pk]) if letter and letter.pdf else None
 
 
 def shortdate(value):

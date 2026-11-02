@@ -73,8 +73,8 @@
           </td>
           <td class="row-actions">
             {% if record.kind == 'presentation' %}<a href="{% url 'edit_presentation' record.source.pk %}">Editar</a>{% endif %}
-            {% if record.cpc_letter.pdf %}<a href="{{ record.cpc_letter.pdf.url }}" target="_blank">PDF CPC</a>{% endif %}
-            {% if record.response_letter and record.response_letter.pdf %}<a href="{{ record.response_letter.pdf.url }}" target="_blank">PDF AAM</a>{% endif %}
+            {% if record.cpc_letter.pdf %}<a href="{% url 'letter_pdf' record.cpc_letter.pk %}" target="_blank">PDF CPC</a>{% endif %}
+            {% if record.response_letter and record.response_letter.pdf %}<a href="{% url 'letter_pdf' record.response_letter.pk %}" target="_blank">PDF AAM</a>{% endif %}
             <a class="danger-link" href="{% url 'delete_letter' record.cpc_letter.pk %}">Eliminar carta</a>
           </td>
         </tr>

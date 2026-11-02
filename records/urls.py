@@ -4,6 +4,7 @@ from . import views, react_api
 
 
 urlpatterns = [
+    path("carta/<int:pk>/pdf/", views.letter_pdf, name="letter_pdf"),
     path("api/dashboard/", react_api.dashboard_data, name="dashboard_data"),
     path("", views.dashboard, name="dashboard"),
     path("perfil/", views.profile, name="profile"),

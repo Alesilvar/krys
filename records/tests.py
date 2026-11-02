@@ -592,3 +592,26 @@ class TestLetterExpedients(TestCase):
         self.assertIsNone(self.followup.predecessor_response_id)
         self.client.logout()
         self.assertRedirects(self.client.get(reverse("letters")), f"{reverse('login')}?next={reverse('letters')}")
+
+class SecurityRegressionTests(TestCase):
+    def test_spreadsheet_values_are_literal(self):
+        from .exports import safe_spreadsheet_value
+        for value in ('=1+1', '  +1', '-1', '@SUM(A1)'):
+            self.assertTrue(safe_spreadsheet_value(value).startswith("'"))
+        self.assertEqual(safe_spreadsheet_value('normal'), 'normal')
+        self.assertEqual(safe_spreadsheet_value(3), 3)
+
+    def test_letter_pdf_requires_login(self):
+        user = get_user_model().objects.create_user('pdf-user', password='secure-password')
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            letter = Letter.objects.create(full_number='PDF-1', correlative=1,
+                direction=Letter.Direction.CPC_AAM, letter_date=date(2026, 1, 1),
+                created_by=user, pdf=SimpleUploadedFile('test.pdf', b'%PDF-test'))
+            url = reverse('letter_pdf', args=[letter.pk])
+            self.assertEqual(self.client.get(url).status_code, 302)
+            self.client.force_login(user)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(b''.join(response.streaming_content), b'%PDF-test')
+            response.close()
+            self.assertEqual(self.client.get(letter.pdf.url).status_code, 404)

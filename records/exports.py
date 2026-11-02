@@ -102,6 +102,17 @@ def record_values(record):
     return presentation_values(record["source"])
 
 
+def safe_spreadsheet_value(value):
+    """Evita que hojas de cálculo interpreten datos externos como fórmulas."""
+    if isinstance(value, str) and value.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
+def safe_record_values(record):
+    return [safe_spreadsheet_value(value) for value in record_values(record)]
+
+
 def workbook_bytes(records):
     """Genera el contenido binario de un libro Excel con los registros."""
     workbook = Workbook()
@@ -109,7 +120,7 @@ def workbook_bytes(records):
     sheet.title = "Registros"
     sheet.append(EXPORT_HEADERS)
     for record in records:
-        sheet.append(record_values(record))
+        sheet.append(safe_record_values(record))
 
     fill = PatternFill("solid", fgColor="163A5F")
     for cell in sheet[1]:

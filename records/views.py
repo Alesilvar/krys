@@ -7,14 +7,14 @@ from django.contrib.messages import get_messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.cache import patch_vary_headers
 
 from extractor import ExtractionError
 
 from .templatetags.react_ui import build_payload
-from .exports import EXPORT_HEADERS, record_values, workbook_bytes
+from .exports import EXPORT_HEADERS, safe_record_values, workbook_bytes
 from .forms import LetterEditForm, ManualRecordForm, MovementEditForm, PresentationEditForm, UploadLettersForm
 from .models import EquipmentMovement, Letter, Presentation
 from .selectors import dashboard_metrics, filtered_records, letter_expedients
@@ -29,6 +29,21 @@ def render_page(request, template_name, context=None):
         return JsonResponse(build_payload(context), headers={'Cache-Control': 'no-store', 'Vary': 'Cookie, X-KS-Client'})
     response = render(request, template_name, context)
     patch_vary_headers(response, ('X-KS-Client',))
+    return response
+
+
+@login_required
+def letter_pdf(request, pk):
+    letter = get_object_or_404(Letter, pk=pk)
+    if not letter.pdf:
+        raise Http404("PDF no disponible")
+    try:
+        response = FileResponse(letter.pdf.open("rb"), content_type="application/pdf")
+    except FileNotFoundError:
+        raise Http404("PDF no disponible")
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Disposition"] = 'inline'
+    response["Cache-Control"] = "private, no-store"
     return response
 
 
@@ -154,7 +169,7 @@ def export_csv(request):
     writer = csv.writer(response)
     writer.writerow(EXPORT_HEADERS)
     for record in records:
-        writer.writerow(record_values(record))
+        writer.writerow(safe_record_values(record))
     return response
 
 
