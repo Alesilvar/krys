@@ -53,12 +53,16 @@ def prepare_preview(uploaded_files):
         for index, uploaded in enumerate(uploaded_files):
             if uploaded.content_type not in {"application/pdf", "application/x-pdf"}:
                 raise ExtractionError(f"{uploaded.name} no es un archivo PDF válido.")
+            if uploaded.size > 10 * 1024 * 1024:
+                raise ExtractionError(f"{uploaded.name} supera el límite de 10 MB.")
             safe_name = get_valid_filename(Path(uploaded.name).name)
             path = pending_dir / f"{index:02d}-{safe_name}"
             with path.open("wb") as target:
                 for chunk in uploaded.chunks():
                     target.write(chunk)
-            if path.stat().st_size < 5 or path.read_bytes()[:5] != b"%PDF-":
+            with path.open("rb") as uploaded_pdf:
+                header = uploaded_pdf.read(5)
+            if path.stat().st_size < 5 or header != b"%PDF-":
                 raise ExtractionError(f"{uploaded.name} no contiene una cabecera PDF válida.")
             uploaded_paths.append(path)
             uploaded_names[str(path)] = safe_name
@@ -257,8 +261,8 @@ def persist_preview(preview, post_data, user):
             )
             with path.open("rb") as source:
                 letter.pdf.save(document["original_name"], File(source), save=False)
-            letter.save()
             stored_files.append(letter.pdf.name)
+            letter.save()
             created_letters[letter.full_number] = letter
 
         for document in preview["documents"]:
@@ -290,7 +294,7 @@ def persist_preview(preview, post_data, user):
                 equipment, row["equipment_type"]
             )
             affected_equipment.add(equipment.pk)
-            presentation, _ = Presentation.objects.update_or_create(
+            presentation, _ = Presentation.objects.get_or_create(
                 cpc_letter=cpc,
                 equipment=equipment,
                 defaults={
@@ -375,7 +379,6 @@ def persist_preview(preview, post_data, user):
         for name in stored_files:
             default_storage.delete(name)
         raise
-    finally:
-        pending_dir = settings.MEDIA_ROOT / "pending" / preview["batch_id"]
-        shutil.rmtree(pending_dir, ignore_errors=True)
+    pending_dir = settings.MEDIA_ROOT / "pending" / preview["batch_id"]
+    shutil.rmtree(pending_dir, ignore_errors=True)
     return list(created_letters.values())

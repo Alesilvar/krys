@@ -336,6 +336,14 @@ class TestPdfImport(TestCase):
         path = SAMPLES / "ejemplo-cuarta" / name
         return SimpleUploadedFile(name, path.read_bytes(), content_type="application/pdf")
 
+    def test_failed_confirmation_can_be_retried(self):
+        preview = prepare_preview([self.upload("PSR2-F2-CPC-AAM-GEN-GLB-CAR-0150.pdf")])
+        with self.assertRaises(ExtractionError):
+            persist_preview(preview, {}, self.user)
+        self.assertTrue(Path(preview["documents"][0]["path"]).exists())
+        persist_preview(preview, {"reception_150": "2026-03-30"}, self.user)
+        self.assertEqual(Letter.objects.count(), 1)
+
     def test_real_pdf_pair_previews_and_persists_two_rows(self):
         preview = prepare_preview(
             [

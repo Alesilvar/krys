@@ -175,12 +175,13 @@ def extract_pdf_text(path: Path) -> str:
     if path.suffix.lower() != ".pdf":
         raise ExtractionError(f"El archivo no es PDF: {path}")
 
-    process = subprocess.run(
-        ["pdftotext", "-layout", str(path), "-"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    try:
+        process = subprocess.run(
+            ["pdftotext", "-layout", str(path), "-"],
+            check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ExtractionError(f"La lectura de {path.name} superó el tiempo permitido.") from error
     if process.returncode != 0:
         error = process.stderr.decode("utf-8", errors="replace").strip()
         raise ExtractionError(f"No se pudo leer {path.name}: {error}")

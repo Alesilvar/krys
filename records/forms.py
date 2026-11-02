@@ -34,7 +34,11 @@ class MultipleFileField(forms.FileField):
 
     def clean(self, data, initial=None):
         clean_one = super().clean
-        return [clean_one(item, initial) for item in (data or [])]
+        if not data:
+            raise ValidationError("Selecciona al menos un archivo PDF.")
+        if len(data) > 20:
+            raise ValidationError("Puedes cargar hasta 20 archivos por lote.")
+        return [clean_one(item, initial) for item in data]
 
 
 class UploadLettersForm(forms.Form):
