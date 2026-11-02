@@ -674,3 +674,27 @@ class PendingEvaluationResponseTests(TestCase):
         api_row = self.client.get(reverse('dashboard_data')).json()['records'][0]
         self.assertEqual(api_row['response'], 34)
         self.assertEqual(api_row['resultLabel'], 'Pendiente')
+
+class LetterNumberValidationTests(TestCase):
+    def test_exactly_four_digit_correlative(self):
+        from .forms import validate_letter_number
+        for value in ('PSR2-F2-CPC-AAM-GEN-GLB-CAR-123', 'PSR2-F2-CPC-AAM-GEN-GLB-CAR-12345'):
+            with self.assertRaises(ValidationError):
+                validate_letter_number(value, 'CPC-AAM')
+        self.assertEqual(validate_letter_number('PSR2-F2-CPC-AAM-GEN-GLB-CAR-0123', 'CPC-AAM'), 'PSR2-F2-CPC-AAM-GEN-GLB-CAR-0123')
+
+    def test_direction_correlative_is_unique(self):
+        from django.db import IntegrityError, transaction
+        user = get_user_model().objects.create_user('numbers')
+        Letter.objects.create(full_number='CPC-unique', correlative=123, direction='CPC_AAM', letter_date=date(2026,1,1), created_by=user)
+        Letter.objects.create(full_number='AAM-unique', correlative=123, direction='AAM_CPC', letter_date=date(2026,1,1), created_by=user)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Letter.objects.create(full_number='CPC-duplicate', correlative=123, direction='CPC_AAM', letter_date=date(2026,1,1), created_by=user)
+
+    def test_movement_year_has_database_safe_limit(self):
+        from .forms import MovementEditForm
+        field = MovementEditForm().fields['year']
+        self.assertEqual(field.clean('2147483647'), 2147483647)
+        for value in ('0', '-1', '2147483648'):
+            with self.assertRaises(ValidationError):
+                field.clean(value)

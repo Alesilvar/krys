@@ -8,7 +8,7 @@ from .models import Evaluation, Letter, Presentation
 
 
 LETTER_NUMBER_RE = re.compile(
-    r"^PSR2-F2-(CPC-AAM|AAM-CPC)-GEN-GLB-CAR-(\d+)$", re.IGNORECASE
+    r"^PSR2-F2-(CPC-AAM|AAM-CPC)-GEN-GLB-CAR-(\d{4})$", re.IGNORECASE
 )
 
 
@@ -272,7 +272,7 @@ class MovementEditForm(LetterEditForm):
     brand = forms.CharField(label="Marca", max_length=80, required=False)
     model = forms.CharField(label="Modelo", max_length=120, required=False)
     serial = forms.CharField(label="Serie", max_length=120, required=False)
-    year = forms.IntegerField(label="Año", min_value=1, required=False)
+    year = forms.IntegerField(label="Año", min_value=1, max_value=2147483647, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -103,8 +103,6 @@ def prepare_preview(uploaded_files):
                 )
 
         parsed_documents = []
-        all_cpc_by_correlative = {}
-        all_aam_by_correlative = {}
         affected_cpc_numbers = set()
 
         for source_order, path in enumerate(all_paths):
@@ -115,7 +113,6 @@ def prepare_preview(uploaded_files):
             if purpose == "DEMOBILIZATION" and identity.direction == "CPC_AAM":
                 parsed_request = demobilization_requests[identity.full_number]
                 parsed = parsed_request.letter
-                all_cpc_by_correlative[parsed.correlative] = parsed.full_number
                 if is_uploaded:
                     affected_cpc_numbers.add(parsed.full_number)
             elif purpose == "DEMOBILIZATION":
@@ -125,18 +122,15 @@ def prepare_preview(uploaded_files):
                     if item.letter.full_number == identity.full_number
                 )
                 parsed = parsed_response.letter
-                all_aam_by_correlative[parsed.correlative] = parsed.full_number
                 if is_uploaded:
                     affected_cpc_numbers.add(parsed.referenced_cpc)
             elif identity.direction == "CPC_AAM":
                 parsed = parse_cpc(text, path, source_order)
-                all_cpc_by_correlative[parsed.correlative] = parsed.full_number
                 if is_uploaded:
                     affected_cpc_numbers.add(parsed.full_number)
             else:
                 parsed_response = parse_response(text, path, source_order)
                 parsed = parsed_response.letter
-                all_aam_by_correlative[parsed.correlative] = parsed.full_number
                 if is_uploaded:
                     affected_cpc_numbers.add(parsed.referenced_cpc)
 
@@ -160,14 +154,14 @@ def prepare_preview(uploaded_files):
 
         serialized_rows = []
         for index, row in enumerate(rows):
-            cpc_number = all_cpc_by_correlative.get(row.cpc_correlative)
+            cpc_number = row.cpc_full_number
             if cpc_number not in affected_cpc_numbers:
                 continue
             data = asdict(row)
             data["cpc_date"] = row.cpc_date.isoformat()
             data["aam_date"] = row.aam_date.isoformat() if isinstance(row.aam_date, date) else ""
             data["cpc_full_number"] = cpc_number
-            data["aam_full_number"] = all_aam_by_correlative.get(row.aam_correlative, "")
+            data["aam_full_number"] = row.aam_full_number
             data["row_index"] = index
             serialized_rows.append(data)
 

@@ -57,6 +57,7 @@ class Letter(models.Model):
 
     class Meta:
         ordering = ["letter_date", "created_at"]
+        constraints = [models.UniqueConstraint(fields=["direction", "correlative"], name="unique_letter_direction_correlative")]
         permissions = [("manage_records", "Puede crear y editar registros"),
                        ("remove_records", "Puede eliminar registros")]
 

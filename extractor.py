@@ -153,6 +153,8 @@ class OutputRow:
     aam_correlative: int | str
     aam_date: date | str
     additional_data: str
+    cpc_full_number: str = ""
+    aam_full_number: str = ""
 
 
 @dataclass(frozen=True)
@@ -230,6 +232,8 @@ def parse_letter_identity(text: str, path: Path, source_order: int) -> Letter:
     if not match:
         raise ExtractionError(f"No se encontro el numero de carta en {path.name}")
     full_number = match.group(1).upper()
+    if len(match.group(2)) != 4:
+        raise ExtractionError(f"El correlativo de {full_number} debe tener cuatro dígitos.")
     direction = "CPC_AAM" if "-CPC-AAM-" in full_number else "AAM_CPC"
     return Letter(
         full_number=full_number,
@@ -807,6 +811,8 @@ def build_rows(
                     aam_correlative=response.letter.correlative if response else "",
                     aam_date=response.letter.letter_date if response else "",
                     additional_data="",
+                    cpc_full_number=cpc.full_number,
+                    aam_full_number=response.letter.full_number if response else "",
                 )
             )
     return rows, warnings
