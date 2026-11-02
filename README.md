@@ -139,3 +139,13 @@ Las pruebas de extracción utilizan las cartas PDF de ejemplo ubicadas por
 defecto en la carpeta padre del proyecto. Si están en otro lugar, define
 `KRYS_TEST_SAMPLES_DIR` con la ruta de esa carpeta antes de ejecutar las
 pruebas. Las muestras documentales no se incluyen en el repositorio.
+
+## Estado operativo y empates
+
+El estado se calcula con las fechas de las cartas: la respuesta AAM para una
+aprobación, la solicitud CPC para un retiro solicitado y la respuesta AAM para
+un retiro autorizado. Una aprobación posterior puede reactivar al equipo. Si una
+aprobación y un retiro coinciden en la fecha más reciente, el estado es «Por
+revisar» y el equipo se excluye del inventario en uso. Una persona con permiso
+de edición puede elegir el evento posterior; la decisión queda en auditoría y
+se invalida si cambian los eventos o sus fechas.

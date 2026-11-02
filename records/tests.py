@@ -416,7 +416,7 @@ class TestPdfImport(TestCase):
         self.assertEqual(Presentation.objects.count(), 24)
         self.assertEqual(Evaluation.objects.count(), 24)
 
-    def test_approved_equipment_can_later_be_retired(self):
+    def test_later_approval_reactivates_despite_import_order(self):
         presentation_names = [
             "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0230.pdf",
             "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0171.pdf",
@@ -450,6 +450,7 @@ class TestPdfImport(TestCase):
         self.assertEqual(len(movement_preview["movement_rows"]), 16)
         persist_preview(movement_preview, {"reception_516": "2026-09-02"}, self.user)
 
+        # AAM 0585 is dated 26 September, after retirement response 0505 on 8 September.
         equipment = Equipment.objects.get(code="CET-756")
         approved = Presentation.objects.filter(
             equipment=equipment,
@@ -457,9 +458,9 @@ class TestPdfImport(TestCase):
         ).exists()
         self.assertTrue(approved)
         self.assertEqual(
-            equipment.operational_status, Equipment.OperationalStatus.RETIRED
+            equipment.operational_status, Equipment.OperationalStatus.ACTIVE
         )
-        self.assertEqual(equipment.retired_at, date(2026, 9, 2))
+        self.assertIsNone(equipment.retired_at)
         movement = EquipmentMovement.objects.get(equipment=equipment)
         self.assertEqual(movement.status, EquipmentMovement.Status.AUTHORIZED)
         self.assertEqual(movement.response_letter.correlative, 505)
@@ -467,7 +468,7 @@ class TestPdfImport(TestCase):
         records, _, _, _ = filtered_records({})
         self.assertEqual(len(records), 40)
         self.assertEqual(
-            sum(item["total"] for item in current_inventory_by_type()), 11
+            sum(item["total"] for item in current_inventory_by_type()), 14
         )
 
     def test_demobilization_request_without_response_stays_requested(self):
@@ -741,3 +742,78 @@ class EvaluationImportConflictTests(TestCase):
             persist_preview(self.preview, {'replace_evaluation_1': '1'}, self.user)
         self.evaluation.refresh_from_db()
         self.assertEqual(self.evaluation.detail, 'Cambio posterior')
+
+class DocumentaryStatusTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser('status-admin', password='secure-password')
+        self.equipment = Equipment.objects.create(code='STATUS-1', equipment_type='Volquete')
+        self.cpc = Letter.objects.create(full_number='CPC-status', correlative=901, direction='CPC_AAM', letter_date=date(2026,1,1), created_by=self.user)
+        self.response = Letter.objects.create(full_number='AAM-status', correlative=901, direction='AAM_CPC', letter_date=date(2026,1,2), response_to=self.cpc, created_by=self.user)
+        self.presentation = Presentation.objects.create(cpc_letter=self.cpc, equipment=self.equipment, equipment_type='Volquete', created_by=self.user)
+        self.evaluation = Evaluation.objects.create(presentation=self.presentation, response_letter=self.response, result='APPROVED', detail='OK', updated_by=self.user)
+        self.request = Letter.objects.create(full_number='CPC-retire', correlative=902, direction='CPC_AAM', letter_date=date(2026,1,3), created_by=self.user, purpose='DEMOBILIZATION')
+        self.retirement = Letter.objects.create(full_number='AAM-retire', correlative=902, direction='AAM_CPC', letter_date=date(2026,1,4), response_to=self.request, created_by=self.user, purpose='DEMOBILIZATION')
+        self.movement = EquipmentMovement.objects.create(equipment=self.equipment, request_letter=self.request, response_letter=self.retirement, status='AUTHORIZED', movement_date=date(2026,1,5), equipment_type='Volquete', created_by=self.user)
+
+    def test_editing_old_approval_does_not_reactivate(self):
+        refresh_equipment_status(self.equipment)
+        self.evaluation.detail = 'Updated detail'
+        self.evaluation.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'RETIRED')
+
+    def test_later_approval_reactivates_even_if_loaded_first(self):
+        self.response.letter_date = date(2026,1,6)
+        self.response.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'ACTIVE')
+
+    def test_tie_resolution_is_audited_and_invalidated_by_date_change(self):
+        from .equipment_rules import analyze_equipment_status
+        self.response.letter_date = self.retirement.letter_date
+        self.response.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'REVIEW')
+        self.assertEqual(current_inventory_by_type(), [])
+        state = analyze_equipment_status(self.equipment)
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('resolve_equipment_status', args=[self.equipment.pk]), {'fingerprint': state['fingerprint'], 'selected': f'approval:{self.evaluation.pk}'})
+        self.assertEqual(response.status_code, 302)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'ACTIVE')
+        self.assertTrue(AuditEvent.objects.filter(object_type='EquipmentStatusResolution', user=self.user).exists())
+        self.movement.movement_date = date(2026,1,7)
+        self.movement.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'REVIEW')
+
+    def test_request_date_and_stale_resolution(self):
+        from .equipment_rules import analyze_equipment_status
+        self.movement.status = EquipmentMovement.Status.REQUESTED
+        self.movement.response_letter = None
+        self.movement.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.operational_status, 'REQUESTED')
+        self.response.letter_date = self.request.letter_date
+        self.response.save()
+        refresh_equipment_status(self.equipment)
+        self.equipment.refresh_from_db()
+        state = analyze_equipment_status(self.equipment)
+        self.assertEqual(state['status'], 'REVIEW')
+        self.request.letter_date = date(2026,1,8)
+        self.request.save()
+        self.client.force_login(self.user)
+        self.client.post(reverse('resolve_equipment_status', args=[self.equipment.pk]), {'fingerprint': state['fingerprint'], 'selected': f'approval:{self.evaluation.pk}'})
+        self.equipment.refresh_from_db()
+        self.assertEqual(self.equipment.status_resolution, {})
+        self.assertFalse(AuditEvent.objects.filter(object_type='EquipmentStatusResolution').exists())
+
+    def test_reader_cannot_resolve_tie(self):
+        reader = get_user_model().objects.create_user('read-only')
+        self.client.force_login(reader)
+        self.assertEqual(self.client.post(reverse('resolve_equipment_status', args=[self.equipment.pk])).status_code, 403)

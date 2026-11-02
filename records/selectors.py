@@ -44,7 +44,7 @@ def filtered_records(params):
             Equipment.OperationalStatus.REQUESTED: EquipmentMovement.Status.REQUESTED,
             Equipment.OperationalStatus.RETIRED: EquipmentMovement.Status.AUTHORIZED,
         }.get(operational_status)
-        movements = (
+        movements = movements.filter(equipment__operational_status=operational_status) if operational_status == Equipment.OperationalStatus.REVIEW else (
             movements.filter(status=movement_status)
             if movement_status
             else movements.none()
@@ -81,12 +81,12 @@ def filtered_records(params):
                 "event_label": "Desmovilización",
                 "equipment": movement.equipment,
                 "equipment_type": movement.equipment_type,
-                "operational_status": (
+                "operational_status": Equipment.OperationalStatus.REVIEW if movement.equipment.operational_status == Equipment.OperationalStatus.REVIEW else (
                     Equipment.OperationalStatus.RETIRED
                     if movement.status == EquipmentMovement.Status.AUTHORIZED
                     else Equipment.OperationalStatus.REQUESTED
                 ),
-                "operational_label": movement.get_status_display(),
+                "operational_label": "Por revisar" if movement.equipment.operational_status == Equipment.OperationalStatus.REVIEW else movement.get_status_display(),
                 "evaluation": None,
                 "response_letter": movement.response_letter,
                 "movement": movement,

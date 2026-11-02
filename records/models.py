@@ -74,6 +74,7 @@ class Equipment(models.Model):
         ACTIVE = "ACTIVE", "Activo"
         REQUESTED = "REQUESTED", "Retiro solicitado"
         RETIRED = "RETIRED", "Retirado"
+        REVIEW = "REVIEW", "Por revisar"
 
     code = models.CharField("placa o código", max_length=40, unique=True)
     equipment_type = models.CharField("tipo de equipo", max_length=100, blank=True)
@@ -84,6 +85,7 @@ class Equipment(models.Model):
         default=OperationalStatus.ACTIVE,
     )
     retired_at = models.DateField("fecha de retiro", null=True, blank=True)
+    status_resolution = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

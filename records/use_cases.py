@@ -185,6 +185,8 @@ def update_presentation(presentation, data, user):
     refresh_equipment_status(equipment)
     if previous_equipment.pk != equipment.pk:
         refresh_equipment_status(previous_equipment)
+    for sibling in Equipment.objects.filter(presentations__cpc_letter=cpc).exclude(pk__in=[equipment.pk, previous_equipment.pk]).distinct():
+        refresh_equipment_status(sibling)
 
     AuditEvent.objects.create(
         user=user,
@@ -268,6 +270,7 @@ def update_letter_and_movement(letter, data, user, movement=None):
             response.pdf = data["aam_pdf"]
         response.save()
     affected = set(letter.requested_movements.values_list("equipment_id", flat=True))
+    affected.update(letter.presentations.values_list("equipment_id", flat=True))
     if movement:
         affected.add(movement.equipment_id)
         equipment, _ = Equipment.objects.get_or_create(code=data["equipment_code"].strip().upper())

@@ -28,6 +28,7 @@ def dashboard_data(request):
             'equipmentType': record['equipment_type'],
             'movementDetail': f'{movement.brand} {movement.model} · {movement.serial}' if movement else '',
             'status': record['operational_status'], 'statusLabel': record['operational_label'],
+            'resolveStatusUrl': reverse('resolve_equipment_status', args=[equipment.pk]) if equipment.operational_status == 'REVIEW' and request.user.has_perm('records.manage_records') else None,
             'statusDate': date(movement.movement_date if movement else equipment.retired_at) if movement or equipment.retired_at else '',
             'result': evaluation.result if evaluation else '',
             'resultLabel': evaluation.get_result_display() if evaluation else ('No aplica' if movement else 'Pendiente'),

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Revisar estado · KS{% endblock %}
+{% block content %}
+<section class="panel form-panel">
+  <h1>Revisar estado de {{ equipment.code }}</h1>
+  {% if state.conflicts %}
+  <p>Las siguientes cartas tienen la misma fecha. Selecciona el evento que ocurrió después.</p>
+  <form method="post" class="stack-form">{% csrf_token %}
+    <input type="hidden" name="fingerprint" value="{{ state.fingerprint }}">
+    {% for event in state.conflicts %}<label><input type="radio" name="selected" value="{{ event.key }}" required> {{ event.date }} · {{ event.label }}</label>{% endfor %}
+    <button class="button button-primary" type="submit">Registrar decisión</button>
+  </form>
+  {% else %}<p>No hay un empate que pueda resolverse desde esta página. Revisa las cartas vinculadas.</p>{% endif %}
+  <p><a href="{% url 'dashboard' %}">Volver al panel</a></p>
+</section>
+{% endblock %}

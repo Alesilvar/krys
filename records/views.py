@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.messages import get_messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.cache import patch_vary_headers
@@ -16,7 +16,8 @@ from extractor import ExtractionError
 from .templatetags.react_ui import build_payload
 from .exports import EXPORT_HEADERS, safe_record_values, workbook_bytes
 from .forms import LetterEditForm, ManualRecordForm, MovementEditForm, PresentationEditForm, UploadLettersForm
-from .models import EquipmentMovement, Letter, Presentation
+from .models import AuditEvent, Equipment, EquipmentMovement, Letter, Presentation
+from .equipment_rules import analyze_equipment_status, refresh_equipment_status
 from .selectors import dashboard_metrics, filtered_records, letter_expedients
 from .services import persist_preview, prepare_preview
 from .use_cases import create_manual_record, delete_cpc_letter, update_letter_and_movement, update_presentation
@@ -45,6 +46,26 @@ def letter_pdf(request, pk):
     response["Content-Disposition"] = 'inline'
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+@login_required
+@permission_required("records.manage_records", raise_exception=True)
+def resolve_equipment_status(request, pk):
+    with transaction.atomic():
+        equipment = get_object_or_404(Equipment.objects.select_for_update(), pk=pk)
+        state = analyze_equipment_status(equipment)
+        if request.method == "POST":
+            selected = request.POST.get("selected", "")
+            if state["fingerprint"] != request.POST.get("fingerprint") or selected not in {event["key"] for event in state["conflicts"]}:
+                messages.error(request, "Los eventos cambiaron o la selección no es válida. Revisa los datos nuevamente.")
+            else:
+                equipment.status_resolution = {"fingerprint": state["fingerprint"], "selected": selected}
+                equipment.save(update_fields=["status_resolution"])
+                refresh_equipment_status(equipment)
+                AuditEvent.objects.create(user=request.user, action=AuditEvent.Action.UPDATE, object_type="EquipmentStatusResolution", object_id=str(equipment.pk), details={"selected": selected, "events": state["conflicts"], "fingerprint": state["fingerprint"]})
+                messages.success(request, "Se registró la decisión sobre el orden de los eventos.")
+                return redirect("dashboard")
+        return render(request, "records/resolve_status.html", {"equipment": equipment, "state": state})
 
 
 @login_required

@@ -40,7 +40,7 @@
         <option value="">Todos los estados</option>
         <option value="ACTIVE" {% if selected_status == 'ACTIVE' %}selected{% endif %}>Activo</option>
         <option value="REQUESTED" {% if selected_status == 'REQUESTED' %}selected{% endif %}>Retiro solicitado</option>
-        <option value="RETIRED" {% if selected_status == 'RETIRED' %}selected{% endif %}>Retirado</option>
+        <option value="REVIEW" {% if selected_status == "REVIEW" %}selected{% endif %}>Por revisar</option><option value="RETIRED" {% if selected_status == 'RETIRED' %}selected{% endif %}>Retirado</option>
       </select>
       <button class="button button-secondary" type="submit">Filtrar</button>
     </form>
@@ -59,8 +59,8 @@
           <td><strong>{{ record.cpc_letter.correlative }}</strong><small>{{ record.cpc_letter.full_number }}</small></td>
           <td>{{ record.cpc_letter.letter_date|date:'d/m/Y' }}<small>Rec. {{ record.cpc_letter.reception_date|date:'d/m/Y'|default:'—' }}</small></td>
           <td><span class="tag">{{ record.event_label }}</span></td>
-          <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small>{% if record.movement %}<small>{{ record.movement.brand }} {{ record.movement.model }} · {{ record.movement.serial }}</small>{% endif %}</td>
-          <td><span class="status {% if record.operational_status == 'RETIRED' %}status-observed{% elif record.operational_status == 'REQUESTED' %}status-pending{% else %}status-approved{% endif %}">{{ record.operational_label }}</span>{% if record.movement %}<small>Salida {{ record.movement.movement_date|date:'d/m/Y' }}</small>{% elif record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}</td>
+          <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small>{% if record.movement %}<small>{{ record.movement.brand }} {{ record.movement.model }} · {{ record.movement.serial }}</small>{% endif %}{% if record.equipment.operational_status == 'REVIEW' and perms.records.manage_records %} <a href="{% url 'resolve_equipment_status' record.equipment.pk %}">Revisar empate</a>{% endif %}</td>
+          <td><span class="status {% if record.operational_status == 'RETIRED' %}status-observed{% elif record.operational_status == 'REQUESTED' or record.operational_status == 'REVIEW' %}status-pending{% else %}status-approved{% endif %}">{{ record.operational_label }}</span>{% if record.movement %}<small>Salida {{ record.movement.movement_date|date:'d/m/Y' }}</small>{% elif record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}</td>
           <td>
             {% if record.evaluation %}
               <span class="status {% if record.evaluation.result == 'APPROVED' %}status-approved{% else %}status-observed{% endif %}">{{ record.evaluation.get_result_display }}</span>
