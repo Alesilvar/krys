@@ -1,13 +1,13 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter, Route, Routes, useLocation, useNavigate} from 'react-router';
-import Dashboard from './dashboard';
+import Dashboard, {Records} from './dashboard';
 import {Layout} from './components';
 import {Login, FormPage, DeletePage, Letters, Upload, Profile} from './pages';
 
 const initialData = JSON.parse(document.getElementById('krys-data').textContent);
 const initialUrl = location.pathname + location.search;
-const pages = {profile: Profile, login: Login, dashboard: Dashboard, manual_record: FormPage, edit_presentation: FormPage, edit_letter: FormPage, edit_movement: FormPage, delete_letter: DeletePage, letters: Letters, upload_letters: Upload};
+const pages = {profile: Profile, login: Login, dashboard: Dashboard, records_list: Records, manual_record: FormPage, edit_presentation: FormPage, edit_letter: FormPage, edit_movement: FormPage, delete_letter: DeletePage, letters: Letters, upload_letters: Upload};
 
 async function requestPage(url, options = {}) {
   const response = await fetch(url, {...options, headers: {...options.headers, 'X-KS-Client': 'react', 'Accept': 'application/json'}});
@@ -61,11 +61,11 @@ function RoutedApp() {
     } catch (e) {setError('No se pudo completar la operación. Comprueba la conexión y vuelve a intentarlo.');} finally {busy.current = false; setLoading(false);}
   }
   const Page = pages[data.page];
-  useEffect(() => {document.title = ({dashboard:'Registros', letters:'Cartas', upload_letters:'Cargar cartas', manual_record:'Ingreso manual', profile:'Mi perfil', login:'Ingresar', edit_presentation:'Editar registro', edit_letter:'Editar carta', edit_movement:'Editar desmovilización', delete_letter:'Eliminar carta'}[data.page] || 'KS') + ' · KS';}, [data.page]);
+  useEffect(() => {document.title = ({dashboard:'Inicio', records_list:'Registros', letters:'Cartas', upload_letters:'Cargar cartas', manual_record:'Ingreso manual', profile:'Mi perfil', login:'Ingresar', edit_presentation:'Editar registro', edit_letter:'Editar carta', edit_movement:'Editar desmovilización', delete_letter:'Eliminar carta'}[data.page] || 'KS') + ' · KS';}, [data.page]);
   return <div onSubmitCapture={submit}><Layout data={data}>{error && <div className="message message-error" role="alert"><strong>No se pudo completar la solicitud</strong><span>{error}</span>{readyUrl !== url && <button className="button button-ghost button-small" type="button" onClick={()=>window.location.reload()}>Volver a intentar</button>}</div>}{loading && <div className="loading-state" role="status"><span className="loading-indicator" aria-hidden="true"/>Procesando, espera un momento…</div>}{readyUrl === url && Page && <Page key={version} data={data}/>}</Layout></div>;
 }
 
-const routes = ['/', '/ingresar/', '/perfil/', '/cartas/', '/cargar/', '/registro/nuevo/', '/registro/:id/editar/', '/carta/:id/editar/', '/carta/:id/eliminar/', '/desmovilizacion/:id/editar/'];
+const routes = ['/', '/registros/', '/ingresar/', '/perfil/', '/cartas/', '/cargar/', '/registro/nuevo/', '/registro/:id/editar/', '/carta/:id/editar/', '/carta/:id/eliminar/', '/desmovilizacion/:id/editar/'];
 if (pages[initialData.page]) {
   createRoot(document.getElementById('app-root')).render(<BrowserRouter><Routes><Route element={<RoutedApp/>}>{routes.map(path => <Route key={path} path={path} element={null}/>)}</Route></Routes></BrowserRouter>);
   document.getElementById('app-fallback').hidden = true;

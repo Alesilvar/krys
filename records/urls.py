@@ -8,6 +8,7 @@ urlpatterns = [
     path("carta/<int:pk>/pdf/", views.letter_pdf, name="letter_pdf"),
     path("api/dashboard/", react_api.dashboard_data, name="dashboard_data"),
     path("", views.dashboard, name="dashboard"),
+    path("registros/", views.records_list, name="records_list"),
     path("perfil/", views.profile, name="profile"),
     path("cartas/", views.letters, name="letters"),
     path("carta/<int:pk>/editar/", views.edit_letter, name="edit_letter"),

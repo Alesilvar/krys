@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Registros · KS{% endblock %}
+{% block content %}
+<section class="hero-row"><div><span class="eyebrow">Base de equipos</span><h1>Registros</h1><p>Busca presentaciones y retiros, consulta sus documentos y exporta los resultados.</p></div></section>
+<section class="dashboard-summary history-summary" aria-labelledby="history-summary">
+  <div class="summary-heading"><div><span class="eyebrow">Historial</span><h2 id="history-summary">Actividad registrada</h2></div><p>Una misma unidad puede tener varias presentaciones y evaluaciones.</p></div>
+  <div class="summary-grid">
+    <article class="stat-card"><span>Registros históricos</span><strong>{{ total }}</strong><small>presentaciones y retiros</small></article>
+    <article class="stat-card stat-approved"><span>Evaluaciones aprobadas</span><strong>{{ approved }}</strong><small>resultados registrados en el historial</small></article>
+    <article class="stat-card stat-observed"><span>Evaluaciones observadas</span><strong>{{ observed }}</strong><small>resultados históricos; pueden estar subsanados</small></article>
+  </div>
+</section>
+
+<section class="panel records-panel" id="historial" aria-labelledby="records-title">
+  <div class="panel-heading"><div><span class="eyebrow">Consulta</span><h2 id="records-title">Historial de registros</h2></div><span class="result-count" role="status">{{ records|length }} resultado{{ records|length|pluralize }}</span></div>
+  <div class="panel-toolbar"><form method="get" class="record-filters">
+    <label>Buscar por placa, carta o tipo<input type="search" name="q" value="{{ query }}" placeholder="Ej. BVL-812"></label>
+    <label>Resultado SST<select name="result"><option value="">Todos los resultados</option><option value="APPROVED" {% if selected_result == 'APPROVED' %}selected{% endif %}>Aprobado</option><option value="OBSERVED" {% if selected_result == 'OBSERVED' %}selected{% endif %}>Observado-No conforme</option></select></label>
+    <label>Estado operativo<select name="status"><option value="">Todos los estados</option><option value="ACTIVE" {% if selected_status == 'ACTIVE' %}selected{% endif %}>Activo</option><option value="REQUESTED" {% if selected_status == 'REQUESTED' %}selected{% endif %}>Retiro solicitado</option><option value="RETIRED" {% if selected_status == 'RETIRED' %}selected{% endif %}>Retirado</option><option value="REVIEW" {% if selected_status == 'REVIEW' %}selected{% endif %}>Por revisar</option></select></label>
+    <div class="filter-actions"><button class="button button-primary" type="submit">Buscar</button><a class="button button-ghost" href="{% url 'records_list' %}">Limpiar</a></div>
+  </form></div>
+  <div class="results-toolbar"><span>La exportación incluye todos los resultados filtrados.</span><div class="export-actions"><a href="{% url 'export_csv' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}&status={{ selected_status|urlencode }}">CSV</a><a href="{% url 'export_xlsx' %}?q={{ query|urlencode }}&result={{ selected_result|urlencode }}&status={{ selected_status|urlencode }}">Excel</a></div></div>
+  <div class="table-wrap"><table class="records-table"><thead><tr><th>Equipo</th><th>Estado operativo</th><th>Resultado SST</th><th>Detalle y documentos</th></tr></thead><tbody>
+  {% for record in records %}<tr>
+    <td><strong>{{ record.equipment.code }}</strong><small>{{ record.equipment_type }}</small><small>CPC {{ record.cpc_letter.correlative }} · {{ record.cpc_letter.letter_date|date:'d/m/Y' }}</small></td>
+    <td><span class="status {% if record.operational_status == 'RETIRED' %}status-retired{% elif record.operational_status == 'REQUESTED' or record.operational_status == 'REVIEW' %}status-pending{% else %}status-approved{% endif %}">{{ record.operational_label }}</span>{% if record.movement %}<small>{{ record.movement.movement_date|date:'d/m/Y' }}</small>{% elif record.equipment.retired_at %}<small>{{ record.equipment.retired_at|date:'d/m/Y' }}</small>{% endif %}{% if record.equipment.operational_status == 'REVIEW' and perms.records.manage_records %}<a href="{% url 'resolve_equipment_status' record.equipment.pk %}">Revisar empate</a>{% endif %}</td>
+    <td>{% if record.evaluation %}<span class="status {% if record.evaluation.result == 'APPROVED' %}status-approved{% else %}status-observed{% endif %}">{{ record.evaluation.get_result_display }}</span><small class="detail-text">{{ record.evaluation.detail }}</small>{% elif record.kind == 'movement' %}<span class="status">No aplica</span>{% else %}<span class="status status-pending">Pendiente</span>{% endif %}</td>
+    <td><details class="record-detail"><summary>Ver detalle <span class="sr-only">de {{ record.equipment.code }}, carta {{ record.cpc_letter.correlative }}</span></summary><div class="record-detail-body">
+      <p><strong>Carta CPC:</strong> {{ record.cpc_letter.full_number }}<br><strong>Fecha:</strong> {{ record.cpc_letter.letter_date|date:'d/m/Y' }} · <strong>Recepción:</strong> {{ record.cpc_letter.reception_date|date:'d/m/Y'|default:'—' }}</p>
+      <p><strong>Trámite:</strong> {{ record.event_label }}{% if record.movement %} · {{ record.movement.brand }} {{ record.movement.model }} · {{ record.movement.serial }}{% endif %}</p>
+      <p><strong>Respuesta AAM:</strong> {% if record.response_letter %}{{ record.response_letter.correlative }} · {{ record.response_letter.letter_date|date:'d/m/Y' }}{% else %}—{% endif %}</p>
+      <div class="detail-actions">{% if record.kind == 'presentation' and perms.records.manage_records %}<a href="{% url 'edit_presentation' record.source.pk %}">Editar registro</a>{% endif %}{% if record.cpc_letter.pdf %}<a href="{% url 'letter_pdf' record.cpc_letter.pk %}" target="_blank" rel="noopener">PDF CPC</a>{% endif %}{% if record.response_letter and record.response_letter.pdf %}<a href="{% url 'letter_pdf' record.response_letter.pk %}" target="_blank" rel="noopener">PDF AAM</a>{% endif %}<a href="{% url 'letters' %}?q={{ record.cpc_letter.full_number|urlencode }}">Ver carta en expedientes</a></div>
+    </div></details></td>
+  </tr>{% empty %}<tr><td colspan="4"><div class="empty-state">{% if query or selected_result or selected_status %}<strong>No hay resultados para estos filtros.</strong><span>Prueba otra búsqueda o limpia los filtros.</span>{% else %}<strong>Aún no hay registros.</strong><span>Carga una carta CPC para comenzar.</span>{% endif %}</div></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

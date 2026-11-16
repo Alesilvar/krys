@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.cache import patch_vary_headers
 
 from extractor import ExtractionError
@@ -64,7 +65,7 @@ def resolve_equipment_status(request, pk):
                 refresh_equipment_status(equipment)
                 AuditEvent.objects.create(user=request.user, action=AuditEvent.Action.UPDATE, object_type="EquipmentStatusResolution", object_id=str(equipment.pk), details={"selected": selected, "events": state["conflicts"], "fingerprint": state["fingerprint"]})
                 messages.success(request, "Se registró la decisión sobre el orden de los eventos.")
-                return redirect("dashboard")
+                return redirect("records_list")
         return render(request, "records/resolve_status.html", {"equipment": equipment, "state": state})
 
 
@@ -75,6 +76,16 @@ def profile(request):
 
 @login_required
 def dashboard(request):
+    # Preserve old links to filtered history after moving it to its own page.
+    if any(key in request.GET for key in ("q", "result", "status")):
+        target = reverse("records_list")
+        query_string = request.META.get("QUERY_STRING", "")
+        return redirect(f"{target}?{query_string}" if query_string else target)
+    return render_page(request, "records/dashboard.html", dashboard_metrics())
+
+
+@login_required
+def records_list(request):
     records, query, result, operational_status = filtered_records(request.GET)
     context = {
         "records": records,
@@ -83,7 +94,7 @@ def dashboard(request):
         "selected_status": operational_status,
         **dashboard_metrics(),
     }
-    return render_page(request, "records/dashboard.html", context)
+    return render_page(request, "records/records_list.html", context)
 
 
 @login_required
@@ -167,7 +178,7 @@ def edit_presentation(request, pk):
             messages.error(request, str(error))
         else:
             messages.success(request, "Registro actualizado.")
-            return redirect("dashboard")
+            return redirect("records_list")
     return render_page(
         request,
         "records/edit.html",

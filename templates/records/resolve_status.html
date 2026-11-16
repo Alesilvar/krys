@@ -11,6 +11,6 @@
     <button class="button button-primary" type="submit">Registrar decisión</button>
   </form>
   {% else %}<p>No hay un empate que pueda resolverse desde esta página. Revisa las cartas vinculadas.</p>{% endif %}
-  <p><a href="{% url 'dashboard' %}">Volver al panel</a></p>
+  <p><a href="{% url 'records_list' %}">Volver a registros</a></p>
 </section>
 {% endblock %}

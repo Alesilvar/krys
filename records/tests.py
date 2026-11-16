@@ -324,7 +324,7 @@ class TestWebFlow(TestCase):
                 },
             )
 
-            self.assertRedirects(response, reverse("dashboard"))
+            self.assertRedirects(response, reverse("records_list"))
             cpc.refresh_from_db()
             self.assertTrue(cpc.pdf.name.endswith("cpc-201.pdf"))
             self.assertTrue(Path(cpc.pdf.path).is_file())
@@ -354,7 +354,7 @@ class TestWebFlow(TestCase):
             created_by=self.user,
         )
 
-        response = self.client.get(reverse("dashboard"))
+        response = self.client.get(reverse("records_list"))
 
         self.assertContains(response, "Desmovilización")
         self.assertContains(response, "Retiro solicitado")

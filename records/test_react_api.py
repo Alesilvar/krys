@@ -28,9 +28,24 @@ class DashboardApiTests(TestCase):
         self.assertEqual(data['records'][0]['resultLabel'], 'Pendiente')
         self.assertEqual(self.client.get(reverse('dashboard_data'), {'q': 'inexistente'}).json()['records'], [])
 
+    def test_home_and_records_are_separate_and_legacy_filters_redirect(self):
+        self.client.force_login(self.user)
+        home = self.client.get(reverse('dashboard'))
+        self.assertContains(home, 'Resumen de equipos y cartas')
+        self.assertNotContains(home, 'Historial de registros')
+        records = self.client.get(reverse('records_list'), {'q': 'ABC-123'})
+        self.assertContains(records, 'Historial de registros')
+        self.assertContains(records, 'ABC-123')
+        self.assertNotContains(records, 'Equipos activos por tipo')
+        self.assertEqual(self.client.get(reverse('records_list'), HTTP_X_KS_CLIENT='react').json()['page'], 'records_list')
+        old = self.client.get(reverse('dashboard'), {'q': 'ABC-123', 'status': 'ACTIVE'})
+        self.assertRedirects(old, reverse('records_list') + '?q=ABC-123&status=ACTIVE')
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('records_list')).status_code, 302)
+
     def test_html_search_feedback_and_expedient_summary(self):
         self.client.force_login(self.user)
-        dashboard = self.client.get(reverse('dashboard'), {'q': 'no-existe'})
+        dashboard = self.client.get(reverse('records_list'), {'q': 'no-existe'})
         self.assertContains(dashboard, 'No hay resultados para estos filtros.')
         self.assertContains(dashboard, '0 resultados')
         letters = self.client.get(reverse('letters'))
@@ -56,7 +71,7 @@ class DashboardApiTests(TestCase):
         self.user.is_superuser = True
         self.user.save()
         self.client.force_login(self.user)
-        for name in ('dashboard', 'letters', 'manual_record', 'upload_letters'):
+        for name in ('dashboard', 'records_list', 'letters', 'manual_record', 'upload_letters'):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(self.payload(response)['page'], name)

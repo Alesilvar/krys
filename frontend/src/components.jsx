@@ -29,7 +29,8 @@ export function EditForm({data, sections, button='Guardar cambios'}) {
 }
 export function LinkPdf({href, children}) {return href ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> : null}
 const menuItems = [
-  {label: 'Registros', href: '/', icon: 'records', pages: ['dashboard']},
+  {label: 'Inicio', href: '/', icon: 'home', pages: ['dashboard']},
+  {label: 'Registros', href: '/registros/', icon: 'records', pages: ['records_list']},
   {label: 'Cartas', href: '/cartas/', icon: 'letters', pages: ['letters', 'edit_letter', 'edit_movement', 'delete_letter']},
   {label: 'Ingreso manual', href: '/registro/nuevo/', icon: 'manual', pages: ['manual_record']},
   {label: 'Cargar cartas', href: '/cargar/', icon: 'upload', pages: ['upload_letters', 'confirm_upload']},
@@ -38,6 +39,7 @@ function MenuIcon({name}) {
   const paths = {
     menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
     close: <path d="M6 6l12 12M18 6L6 18"/>,
+    home: <><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></>,
     records: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></>,
     letters: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></>,
     manual: <><path d="M12 4v16M4 12h16"/></>,

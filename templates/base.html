@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=13">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=14">
 </head>
 <body>
   {% react_payload %}
@@ -22,7 +22,8 @@
       <span><strong>KS</strong><small>Control documental SST</small></span>
     </a>
     <nav class="nav-actions" aria-label="Navegación principal">
-      <a href="{% url 'dashboard' %}">Registros</a>
+      <a href="{% url 'dashboard' %}">Inicio</a>
+      <a href="{% url 'records_list' %}">Registros</a>
       <a href="{% url 'letters' %}">Cartas</a>
       {% if perms.records.manage_records %}<a href="{% url 'manual_record' %}">Ingreso manual</a>
       <a class="button button-primary button-small" href="{% url 'upload_letters' %}">Cargar cartas</a>{% endif %}
@@ -41,6 +42,6 @@
     {% block content %}{% endblock %}
   </main>
   </div>
-  <script type="module" src="{% static 'react/app.js' %}?v=13"></script>
+  <script type="module" src="{% static 'react/app.js' %}?v=14"></script>
 </body>
 </html>
