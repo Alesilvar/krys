@@ -55,4 +55,4 @@ npm ci
 npm run build
 ```
 
-El arranque normal usa el archivo compilado y no requiere Node. Django sigue gestionando sesiones, formularios y reglas; sin JavaScript se usan las plantillas HTML existentes. Para comprobar enlaces de documentación, desde la raíz ejecuta `python3 scripts/check_doc_links.py`.
+El arranque normal usa el archivo compilado y no requiere Node. Django sigue gestionando sesiones, formularios y reglas; sin JavaScript se usan las plantillas HTML existentes, con navegación adaptable también en pantallas pequeñas. Para comprobar enlaces de documentación, desde la raíz ejecuta `python3 scripts/check_doc_links.py`.
