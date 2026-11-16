@@ -4,7 +4,7 @@ KS mantiene cartas CPC, respuestas AAM y registros de equipos. Inicia sesión co
 
 ## Consultar y exportar
 
-En **Registros**, busca por placa, carta o tipo; también puedes filtrar por resultado SST y estado operativo. Pulsa **Filtrar** y usa **CSV** o **Excel** para exportar la selección. Los indicadores resumen el conjunto de datos, no solo la selección. En **Cartas**, busca por número o equipo y filtra por respuesta pendiente o respondida; abre un expediente para ver cartas, equipos y PDF disponibles.
+En **Registros**, el gráfico de pastel distribuye por tipo los equipos con estado activo; excluye los que tienen retiro solicitado, están retirados o están por revisar. Incluye los equipos sin tipo en una categoría separada. En la misma pantalla, busca por placa, carta o tipo; también puedes filtrar por resultado SST y estado operativo. Pulsa **Filtrar** y usa **CSV** o **Excel** para exportar la selección. Los indicadores resumen el conjunto de datos, no solo la selección. En **Cartas**, busca por número o equipo y filtra por respuesta pendiente o respondida; abre un expediente para ver cartas, equipos y PDF disponibles.
 
 ## Cargar cartas PDF
 

@@ -20,6 +20,12 @@
   <article class="stat-card"><span>Sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
 </section>
 
+<section class="panel active-chart-panel" aria-labelledby="active-chart-title">
+  <div class="panel-heading"><div><span class="eyebrow">Estado operativo</span><h2 id="active-chart-title">Equipos activos por tipo</h2></div><span class="count-pill">{{ active_chart.total }} equipos</span></div>
+  <p class="chart-description">Solo equipos con estado activo; excluye retiros solicitados y equipos retirados o por revisar.</p>
+  {% if active_chart.total %}<div class="chart-layout"><div class="pie-chart" aria-hidden="true" style="background: conic-gradient({{ active_chart.gradient }})"></div><ul class="chart-legend">{% for item in active_chart.items %}<li><span class="chart-swatch" aria-hidden="true" style="background: {{ item.color }}"></span><span>{{ item.equipment_type }}</span><strong>{{ item.total }} <small>({{ item.percentage }} %)</small></strong></li>{% endfor %}</ul></div>{% else %}<div class="empty-state"><span>No hay equipos activos para mostrar.</span></div>{% endif %}
+</section>
+
 <section class="panel">
   <div class="panel-heading"><div><span class="eyebrow">Inventario actual</span><h2>Equipos en uso por tipo</h2></div><span class="count-pill">{{ inventory_total }} equipos</span></div>
   {% if inventory_by_type %}<div class="stats-grid">

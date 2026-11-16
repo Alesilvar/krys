@@ -21,7 +21,7 @@ from .models import (
 )
 from .services import persist_preview, prepare_preview
 from .equipment_rules import canonical_equipment_type, ensure_equipment_type, refresh_equipment_status
-from .selectors import current_inventory_by_type, filtered_records
+from .selectors import active_equipment_chart, current_inventory_by_type, filtered_records
 
 
 SAMPLES = Path(os.environ.get("KRYS_TEST_SAMPLES_DIR", Path(__file__).resolve().parents[2]))
@@ -30,6 +30,26 @@ SAMPLES = Path(os.environ.get("KRYS_TEST_SAMPLES_DIR", Path(__file__).resolve().
 class TestRecordModels(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("tester", password="safe-test-password")
+
+    def test_active_chart_counts_only_active_equipment_and_groups_types(self):
+        for code, kind, status in [
+            ("AAA-111", "Volquete", Equipment.OperationalStatus.ACTIVE),
+            ("BBB-222", "Camión volquete", Equipment.OperationalStatus.ACTIVE),
+            ("CCC-333", "", Equipment.OperationalStatus.ACTIVE),
+            ("DDD-444", "Volquete", Equipment.OperationalStatus.REQUESTED),
+            ("EEE-555", "Volquete", Equipment.OperationalStatus.RETIRED),
+            ("FFF-666", "Volquete", Equipment.OperationalStatus.REVIEW),
+        ]:
+            Equipment.objects.create(code=code, equipment_type=kind, operational_status=status)
+        chart = active_equipment_chart()
+        self.assertEqual(chart["total"], 3)
+        self.assertEqual([(item["equipment_type"], item["total"]) for item in chart["items"]],
+                         [("Camión volquete", 2), ("Sin tipo", 1)])
+        self.assertEqual(chart["items"][0]["percentage"], 66.7)
+        self.assertTrue(chart["gradient"])
+
+    def test_active_chart_handles_empty_inventory(self):
+        self.assertEqual(active_equipment_chart(), {"total": 0, "items": [], "gradient": ""})
 
     def test_equipment_type_aliases_and_ambiguous_values(self):
         for original, expected in [("VOLQUETE", "Camión volquete"),

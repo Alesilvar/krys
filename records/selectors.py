@@ -123,6 +123,29 @@ def current_inventory_by_type():
     return [{"equipment_type": name, "total": total} for name, total in sorted(totals.items())]
 
 
+def active_equipment_chart():
+    """Agrupa cada equipo activo por tipo para el gráfico del panel."""
+    groups = Equipment.objects.filter(
+        operational_status=Equipment.OperationalStatus.ACTIVE
+    ).values("equipment_type").annotate(total=Count("id"))
+    totals = {}
+    for group in groups:
+        name = canonical_equipment_type(group["equipment_type"]) if group["equipment_type"] else "Sin tipo"
+        totals[name] = totals.get(name, 0) + group["total"]
+    total = sum(totals.values())
+    items = []
+    offset = 0
+    for index, (name, count) in enumerate(sorted(totals.items())):
+        start = offset / total * 100
+        offset += count
+        end = offset / total * 100
+        color = f"hsl({(index * 137 + 175) % 360}, 55%, 40%)"
+        items.append({"equipment_type": name, "total": count, "percentage": round(count / total * 100, 1),
+                      "color": color, "start": start, "end": end})
+    gradient = ", ".join(f'{item["color"]} {item["start"]:.4f}% {item["end"]:.4f}%' for item in items)
+    return {"total": total, "items": items, "gradient": gradient}
+
+
 def dashboard_metrics():
     inventory = current_inventory_by_type()
     return {
@@ -140,6 +163,7 @@ def dashboard_metrics():
             direction=Letter.Direction.CPC_AAM, response_letter__isnull=True
         ).count(),
         "inventory_by_type": inventory,
+        "active_chart": active_equipment_chart(),
         "inventory_total": sum(item["total"] for item in inventory),
     }
 
