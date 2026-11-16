@@ -28,6 +28,18 @@ class DashboardApiTests(TestCase):
         self.assertEqual(data['records'][0]['resultLabel'], 'Pendiente')
         self.assertEqual(self.client.get(reverse('dashboard_data'), {'q': 'inexistente'}).json()['records'], [])
 
+    def test_html_search_feedback_and_expedient_summary(self):
+        self.client.force_login(self.user)
+        dashboard = self.client.get(reverse('dashboard'), {'q': 'no-existe'})
+        self.assertContains(dashboard, 'No hay resultados para estos filtros.')
+        self.assertContains(dashboard, '0 resultados')
+        letters = self.client.get(reverse('letters'))
+        self.assertContains(letters, 'Última carta pendiente')
+        self.assertContains(letters, '1 expediente encontrado')
+        self.assertContains(letters, '01/01/2026')
+        self.assertContains(self.client.get(reverse('letters'), {'q': 'no-existe'}),
+                            'No hay expedientes para estos filtros.')
+
     def payload(self, response):
         import json
         import re

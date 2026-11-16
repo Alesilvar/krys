@@ -9,9 +9,10 @@
     <div class="full-width form-actions"><button class="button button-primary" type="submit">Buscar</button><a class="button button-ghost" href="{% url 'letters' %}">Limpiar</a></div>
   </form>
 </section>
+<p class="expedient-count" role="status">{{ expedients|length }} expediente{{ expedients|length|pluralize }} encontrado{{ expedients|length|pluralize }}</p>
 {% for group in expedients %}
-<details class="panel form-panel" style="margin-top: 1rem">
-  <summary><strong>Expediente {{ group.0.full_number }}</strong> · {{ group|length }} carta{{ group|length|pluralize }}</summary>
+<details class="panel form-panel expedient">
+  {% with latest=group|last %}<summary><strong>Expediente {{ group.0.full_number }}</strong><span>{{ group|length }} carta{{ group|length|pluralize }} · Última CPC: {{ latest.letter_date|date:'d/m/Y' }} · {% if latest.response_letter %}Última carta respondida{% else %}Última carta pendiente{% endif %}</span></summary>{% endwith %}
   {% for letter in group %}
   <article style="padding: 1rem 0; border-top: 1px solid #ddd; margin-top: 1rem">
     <h2>CPC {{ letter.full_number }}</h2>
@@ -24,5 +25,5 @@
   </article>
   {% endfor %}
 </details>
-{% empty %}<section class="panel form-panel"><p>No se encontraron expedientes.</p></section>{% endfor %}
+{% empty %}<section class="panel form-panel"><p>{% if query or status %}No hay expedientes para estos filtros. Prueba otra búsqueda o limpia los filtros.{% else %}Aún no hay expedientes registrados.{% endif %}</p></section>{% endfor %}
 {% endblock %}
