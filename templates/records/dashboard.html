@@ -4,9 +4,9 @@
 {% block content %}
 <section class="hero-row">
   <div>
-    <span class="eyebrow">Control documental</span>
-    <h1>Resumen de equipos y cartas</h1>
-    <p>Consulta la situación actual de tus equipos y cartas.</p>
+    <span class="eyebrow">Control documental SST</span>
+    <h1>Resumen general</h1>
+    <p>Consulta el estado de tus equipos y cartas en un solo lugar.</p>
   </div>
   <div class="hero-actions"><a class="button button-secondary" href="{% url 'records_list' %}">Buscar registros</a>{% if perms.records.manage_records %}<a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a>{% endif %}</div>
 </section>
@@ -21,10 +21,15 @@
   </div>
 </section>
 
-<section class="panel active-chart-panel" aria-labelledby="active-chart-title">
+<div class="dashboard-panels"><section class="panel active-chart-panel" aria-labelledby="active-chart-title">
   <div class="panel-heading"><div><span class="eyebrow">Estado operativo</span><h2 id="active-chart-title">Equipos activos por tipo</h2></div><span class="count-pill">{{ active_chart.total }} equipos</span></div>
-  <p class="chart-description">Equipos con estado activo y al menos una presentación o movimiento. Los equipos sin historial no se cuentan.</p>
+  <p class="chart-description">Equipos activos con al menos una presentación o movimiento.</p>
   {% if active_chart.total %}<div class="chart-layout"><div class="pie-chart" aria-hidden="true" style="background: conic-gradient({{ active_chart.gradient }})"></div><ul class="chart-legend">{% for item in active_chart.items %}<li><span class="chart-swatch" aria-hidden="true" style="background: {{ item.color }}"></span><span>{{ item.equipment_type }}</span><strong>{{ item.total }} <small>({{ item.percentage }} %)</small></strong></li>{% endfor %}</ul></div>{% else %}<div class="empty-state"><span>No hay equipos activos para mostrar.</span></div>{% endif %}
-</section>
+</section><section class="panel pending-panel" aria-labelledby="pending-title">
+  <div class="panel-heading"><div><span class="eyebrow">Seguimiento</span><h2 id="pending-title">Cartas pendientes</h2></div><span class="pending-count">{{ pending_letters }}</span></div>
+  <p class="pending-description">Cartas CPC que aún no tienen respuesta AAM.</p>
+  {% if pending_preview %}<ul class="pending-list">{% for letter in pending_preview %}<li><a href="{% url 'letters' %}?status=pending&amp;q={{ letter.number|urlencode }}"><strong>{{ letter.number }}</strong><span>Fecha de carta: {{ letter.date }} <span aria-hidden="true">→</span></span></a></li>{% endfor %}</ul>{% else %}<div class="pending-empty"><span class="pending-check" aria-hidden="true">✓</span><strong>Sin cartas pendientes</strong><span>No hay cartas CPC esperando respuesta.</span></div>{% endif %}
+  <div class="pending-footer"><a href="{% url 'letters' %}?status=pending">Ver todas las pendientes <span aria-hidden="true">→</span></a></div>
+</section></div>
 
 {% endblock %}

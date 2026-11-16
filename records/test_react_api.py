@@ -31,7 +31,7 @@ class DashboardApiTests(TestCase):
     def test_home_and_records_are_separate_and_legacy_filters_redirect(self):
         self.client.force_login(self.user)
         home = self.client.get(reverse('dashboard'))
-        self.assertContains(home, 'Resumen de equipos y cartas')
+        self.assertContains(home, 'Resumen general')
         self.assertNotContains(home, 'Historial de registros')
         records = self.client.get(reverse('records_list'), {'q': 'ABC-123'})
         self.assertContains(records, 'Historial de registros')
@@ -42,6 +42,23 @@ class DashboardApiTests(TestCase):
         self.assertRedirects(old, reverse('records_list') + '?q=ABC-123&status=ACTIVE')
         self.client.logout()
         self.assertEqual(self.client.get(reverse('records_list')).status_code, 302)
+
+    def test_pending_preview_is_limited_ordered_and_excludes_answers(self):
+        self.client.force_login(self.user)
+        for index in range(2, 8):
+            Letter.objects.create(full_number=f'CPC-{index:04}', correlative=index,
+                direction='CPC_AAM', letter_date=date(2026, 1, index), created_by=self.user)
+        answered = Letter.objects.get(full_number='CPC-0002')
+        Letter.objects.create(full_number='AAM-0002', correlative=2, direction='AAM_CPC',
+            letter_date=date(2026, 2, 1), response_to=answered, created_by=self.user)
+        metrics = self.client.get(reverse('dashboard_data')).json()['metrics']
+        self.assertEqual(metrics['pending_letters'], 6)
+        self.assertEqual([item['number'] for item in metrics['pending_preview']],
+                         ['CPC-0001', 'CPC-0003', 'CPC-0004', 'CPC-0005', 'CPC-0006'])
+        home = self.client.get(reverse('dashboard'))
+        self.assertContains(home, 'CPC-0001')
+        self.assertNotContains(home, 'CPC-0002')
+        self.assertContains(home, 'Ver todas las pendientes')
 
     def test_html_search_feedback_and_expedient_summary(self):
         self.client.force_login(self.user)

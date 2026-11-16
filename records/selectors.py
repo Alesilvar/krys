@@ -136,11 +136,12 @@ def active_equipment_chart():
     total = sum(totals.values())
     items = []
     offset = 0
+    palette = ("#087f78", "#345f82", "#26485f", "#b97a35", "#638a78", "#74658d", "#7390a4", "#9a655d")
     for index, (name, count) in enumerate(sorted(totals.items())):
         start = offset / total * 100
         offset += count
         end = offset / total * 100
-        color = f"hsl({(index * 137 + 175) % 360}, 55%, 40%)"
+        color = palette[index % len(palette)]
         items.append({"equipment_type": name, "total": count, "percentage": round(count / total * 100, 1),
                       "color": color, "start": start, "end": end})
     gradient = ", ".join(f'{item["color"]} {item["start"]:.4f}% {item["end"]:.4f}%' for item in items)
@@ -149,6 +150,9 @@ def active_equipment_chart():
 
 def dashboard_metrics():
     inventory = current_inventory_by_type()
+    pending = Letter.objects.filter(
+        direction=Letter.Direction.CPC_AAM, response_letter__isnull=True
+    ).order_by("letter_date", "pk")
     return {
         "total": Presentation.objects.count() + EquipmentMovement.objects.count(),
         "approved": Evaluation.objects.filter(
@@ -160,9 +164,10 @@ def dashboard_metrics():
         "retired": Equipment.objects.filter(
             operational_status=Equipment.OperationalStatus.RETIRED
         ).count(),
-        "pending_letters": Letter.objects.filter(
-            direction=Letter.Direction.CPC_AAM, response_letter__isnull=True
-        ).count(),
+        "pending_letters": pending.count(),
+        "pending_preview": [{"number": letter.full_number,
+                             "date": letter.letter_date.strftime("%d/%m/%Y")}
+                            for letter in pending[:5]],
         "inventory_by_type": inventory,
         "active_chart": active_equipment_chart(),
         "inventory_total": sum(item["total"] for item in inventory),
