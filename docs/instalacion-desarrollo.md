@@ -45,6 +45,14 @@ KRYS_TEST_SAMPLES_DIR=/ruta/a/las/muestras USE_SQLITE=1 .venv/bin/python manage.
 
 El comando debe terminar sin fallos; si faltan las muestras, revisa el resultado antes de asumir cobertura completa. La suite de extracción independiente también se puede ejecutar con `.venv/bin/python -m pytest test_extractor.py test_ocr.py`. Las pruebas de OCR usan una carta de muestra para verificar el texto original y una copia temporal rasterizada de su primera página; requieren Poppler, Tesseract y el idioma `spa`, y omiten la prueba correspondiente si falta la muestra o el OCR. Las muestras pueden contener información sensible y no deben incorporarse al repositorio sin autorización.
 
+Para diagnosticar una colección de PDF sin importar datos, se puede generar un informe JSON fuera del repositorio:
+
+```bash
+.venv/bin/python scripts/audit_pdfs.py /ruta/a/las/cartas --exclude /ruta/a/las/cartas/krys --reference /ruta/a/Equipos.csv --output /tmp/diagnostico-krys.json
+```
+
+`--reference` y `--exclude` son opcionales; `--exclude` puede repetirse. El CSV debe tener el orden de columnas de la hoja Equipos. El diagnóstico identifica duplicados exactos, números de carta repetidos y errores por archivo; cruza las filas por correlativo CPC y código normalizado. Es una extracción parcial: las cartas rechazadas no participan en la comparación. La recepción, el detalle de observaciones y los datos adicionales no se comparan automáticamente. El informe incluye datos de las cartas y debe almacenarse en un lugar privado.
+
 ## Frontend
 
 Para regenerar el archivo versionado `static/react/app.js` tras cambiar React:

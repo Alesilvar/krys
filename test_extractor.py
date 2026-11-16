@@ -13,6 +13,7 @@ from extractor import (
     build_rows,
     extract_documents,
     extract_pdf_text,
+    parse_response,
     parse_demobilization_request,
     parse_demobilization_response,
     validate_demobilization_pair,
@@ -115,6 +116,31 @@ class RealDocumentExtractionTests(unittest.TestCase):
 
 
 class MatchingRulesTests(unittest.TestCase):
+    def test_multiple_responses_are_not_silently_overwritten(self):
+        cpc = Letter('CPC-1', 1, date(2026, 1, 1), 'CPC_AAM', Path('cpc.pdf'), 0,
+                     equipment=[Equipment('AAA-111', 'Volquete')])
+        responses = []
+        for number, result in ((2, 'Aprobado'), (3, 'Observado-No conforme')):
+            letter = Letter(f'AAM-{number}', number, date(2026, 1, number),
+                            'AAM_CPC', Path('aam.pdf'), number, referenced_cpc='CPC-1')
+            responses.append(ParsedResponse(letter, {'AAA-111': Evaluation('AAA-111', result, result)}))
+        rows, warnings = build_rows([cpc], responses)
+        self.assertEqual(rows[0].result, '')
+        self.assertEqual(rows[0].aam_correlative, '')
+        self.assertIn('varias respuestas', warnings[0])
+
+    def test_observations_with_parenthesized_plate(self):
+        text = '''Lima, 19 de mayo de 2026
+CARTA No. PSR2-F2-AAM-CPC-GEN-GLB-CAR-0187
+Referencia: Carta No. PSR2-F2-CPC-AAM-GEN-GLB-CAR-0241
+• Volquete FAW (Placa BWK-844): Falta el Certificado de Opacidad.
+• Excavadora KOMATSU (Placa/Serie EXC35-12): Certificado sin vigencia.
+'''
+        parsed = parse_response(text, Path('0187.pdf'), 0)
+        self.assertEqual(set(parsed.evaluations), {'BWK-844', 'EXC35-12'})
+        self.assertIn('Opacidad', parsed.evaluations['BWK-844'].detail)
+        self.assertEqual(parsed.evaluations['EXC35-12'].result, 'Observado-No conforme')
+
     def test_response_only_equipment_is_omitted_and_reported(self):
         cpc = Letter(
             full_number="PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001",

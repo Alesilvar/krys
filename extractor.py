@@ -383,7 +383,12 @@ def parse_demobilization_request(
             )
         )
     declared = re.search(r"diecis[eé]is\s*\(16\)", text, re.IGNORECASE)
-    if not items or (declared and len(items) != 16):
+    if not items:
+        raise ExtractionError(
+            f"No se reconoció una tabla compatible de desmovilización en {path.name}; "
+            "se requiere revisión."
+        )
+    if declared and len(items) != 16:
         raise ExtractionError(
             f"Se esperaban 16 equipos de desmovilizacion en {path.name} y se extrajeron {len(items)}"
         )
@@ -493,9 +498,9 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
         if not evaluations:
             evaluations = parse_lifted_observations_response(text)
         if not evaluations:
-            evaluations = parse_individual_observations_response(text)
-        if not evaluations:
             evaluations = parse_explicit_approvals_response(text)
+        if not evaluations:
+            evaluations = parse_individual_observations_response(text)
 
     normalized = normalized_for_matching(text)
     if is_blanket_approval(normalized):
@@ -527,8 +532,10 @@ def parse_individual_observations_response(text: str) -> dict[str, Evaluation]:
     source = observations_section.group(1) if observations_section else text
     starts = list(
         re.finditer(
-            rf"^\s*[•]\s*(?:{EQUIPMENT_TYPE_RE})\s+(?:de\s+)?placa\s+"
-            rf"({CODE_RE})\b[^:]*:\s*",
+            rf"^[ \t]*[•][ \t]*[^\n:()]+?"
+            rf"(?:\(\s*(?:placa(?:\s*/\s*serie)?|serie)\s*[:.]?\s*|"
+            rf"(?:de\s+)?placa\s*[:.]?\s*)"
+            rf"({CODE_RE})\b[^\n:]*:[ \t]*",
             source,
             re.MULTILINE | re.IGNORECASE,
         )
@@ -551,7 +558,20 @@ def parse_individual_observations_response(text: str) -> dict[str, Evaluation]:
         )[0]
         detail = normalize_space(segment)
         code = normalize_code(start.group(1))
-        if detail:
+        # A bullet is not necessarily an observation; an explicit favorable
+        # outcome must never be converted into an adverse one.
+        favorable = re.search(
+            r"\b(?:aprobado|aprobada|conforme|subsanad[oa]|levantad[oa])\b",
+            detail,
+            re.IGNORECASE,
+        )
+        adverse = re.search(
+            r"\b(?:falta|no\s+(?:presenta|cuenta|indica|corresponde|conforme|se)|"
+            r"vencid[oa]|sin|incomplet[oa]|observad[oa]|rechazad[oa])\b",
+            detail,
+            re.IGNORECASE,
+        )
+        if detail and (not favorable or adverse):
             evaluations[code] = Evaluation(code, "Observado-No conforme", detail)
     return evaluations
 
@@ -737,7 +757,9 @@ def build_rows(
 ) -> tuple[list[OutputRow], list[str]]:
     cpc_letters = list(cpc_letters)
     responses = list(responses)
-    response_by_cpc = {item.letter.referenced_cpc: item for item in responses}
+    responses_by_cpc: dict[str, list[ParsedResponse]] = {}
+    for item in responses:
+        responses_by_cpc.setdefault(item.letter.referenced_cpc, []).append(item)
     response_by_number = {item.letter.full_number: item for item in responses}
     cpc_by_number = {item.full_number: item for item in cpc_letters}
     ordinal_cache: dict[tuple[str, str], int | None] = {}
@@ -786,7 +808,14 @@ def build_rows(
             warnings.append(message)
 
     for cpc in sorted(cpc_letters, key=lambda item: (item.letter_date, item.source_order)):
-        response = response_by_cpc.get(cpc.full_number)
+        candidates = responses_by_cpc.get(cpc.full_number, [])
+        response = candidates[0] if len(candidates) == 1 else None
+        if len(candidates) > 1:
+            warn_once(
+                f"ambiguous:{cpc.full_number}",
+                f"{cpc.full_number}: hay varias respuestas AAM; se requiere revisión "
+                "antes de asignar evaluaciones.",
+            )
         cpc_codes = {item.code for item in cpc.equipment}
         if response:
             extra = sorted(set(response.evaluations) - cpc_codes)
