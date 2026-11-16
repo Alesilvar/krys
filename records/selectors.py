@@ -3,6 +3,7 @@
 from django.db.models import Count, Q
 
 from .models import Equipment, EquipmentMovement, Evaluation, Letter, Presentation
+from .equipment_rules import canonical_equipment_type
 
 
 def filtered_records(params):
@@ -102,7 +103,7 @@ def filtered_records(params):
 
 def current_inventory_by_type():
     """Cuenta placas aprobadas que siguen activas o con retiro solicitado."""
-    return list(
+    groups = (
         Equipment.objects.filter(
             operational_status__in=[
                 Equipment.OperationalStatus.ACTIVE,
@@ -115,6 +116,11 @@ def current_inventory_by_type():
         .annotate(total=Count("id", distinct=True))
         .order_by("equipment_type")
     )
+    totals = {}
+    for group in groups:
+        name = canonical_equipment_type(group["equipment_type"])
+        totals[name] = totals.get(name, 0) + group["total"]
+    return [{"equipment_type": name, "total": total} for name, total in sorted(totals.items())]
 
 
 def dashboard_metrics():

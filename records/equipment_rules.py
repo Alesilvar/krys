@@ -10,16 +10,14 @@ from django.core.exceptions import ValidationError
 from .models import Equipment, EquipmentMovement, Evaluation
 
 
-TYPE_ALIASES = {
-    "camion volquete": "Volquete",
-    "volquete": "Volquete",
-    "camioneta": "Camioneta",
-    "camion grua": "Camión grúa",
-    "excavadora": "Excavadora",
-    "retroexcavadora": "Retroexcavadora",
-    "cisterna de agua": "Cisterna de Agua",
-    "cisterna de combustible": "Cisterna de Combustible",
-}
+EQUIPMENT_TYPES = (
+    "Ambulancia", "Automóvil", "Camioneta", "Camión baranda", "Camión furgón",
+    "Camión grúa", "Camión volquete", "Cargador frontal",
+    "Cisterna de agua no potable", "Cisterna de agua potable", "Cisterna de combustible",
+    "Excavadora", "Furgoneta", "Grúa telescópica", "Grúa sobre orugas",
+    "Minicargador", "Perforadora hidráulica", "Plataforma elevadora",
+    "Retroexcavadora", "Rodillo compactador", "Tractocamión", "Tractor sobre orugas",
+)
 
 
 def comparable_equipment_type(value):
@@ -28,6 +26,30 @@ def comparable_equipment_type(value):
         character for character in normalized if not unicodedata.combining(character)
     )
     return re.sub(r"\s+", " ", normalized).strip().casefold()
+
+
+TYPE_ALIASES = {comparable_equipment_type(name): name for name in EQUIPMENT_TYPES}
+TYPE_ALIASES.update({
+    "volquete": "Camión volquete",
+    "volquete faw": "Camión volquete",
+    "excavadora komatsu": "Excavadora",
+    "excavadora sobre orugas": "Excavadora",
+    "camion pick-up": "Camioneta",
+    "camioneta pick-up": "Camioneta",
+    "camioneta suv": "Camioneta",
+    "rodillo bomag": "Rodillo compactador",
+    "rodillo bermero": "Rodillo compactador",
+    "rodillo vibrante": "Rodillo compactador",
+    "grua de celosia sobre orugas": "Grúa sobre orugas",
+    "grua movil sobre orugas con pluma de celosia": "Grúa sobre orugas",
+    "grua telescopica movil": "Grúa telescópica",
+    "mini cargador": "Minicargador",
+    "camion cisterna de combustible": "Cisterna de combustible",
+    "plataforma genie": "Plataforma elevadora",
+    "plataforma jlg": "Plataforma elevadora",
+    "manlift": "Plataforma elevadora",
+    "scissor lift": "Plataforma elevadora",
+})
 
 
 def canonical_equipment_type(value):

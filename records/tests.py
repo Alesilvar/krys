@@ -20,7 +20,7 @@ from .models import (
     Presentation,
 )
 from .services import persist_preview, prepare_preview
-from .equipment_rules import ensure_equipment_type, refresh_equipment_status
+from .equipment_rules import canonical_equipment_type, ensure_equipment_type, refresh_equipment_status
 from .selectors import current_inventory_by_type, filtered_records
 
 
@@ -30,6 +30,24 @@ SAMPLES = Path(os.environ.get("KRYS_TEST_SAMPLES_DIR", Path(__file__).resolve().
 class TestRecordModels(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("tester", password="safe-test-password")
+
+    def test_equipment_type_aliases_and_ambiguous_values(self):
+        for original, expected in [("VOLQUETE", "Camión volquete"),
+                                   ("  Mini  cargador ", "Minicargador"),
+                                   ("Grúa de celosía sobre orugas", "Grúa sobre orugas"),
+                                   ("Cisterna de agua", "Cisterna de agua"),
+                                   ("Grúa todoterreno", "Grúa todoterreno")]:
+            with self.subTest(original=original):
+                self.assertEqual(canonical_equipment_type(original), expected)
+
+    def test_inventory_groups_existing_equivalent_types(self):
+        cpc = self.letter("PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", "CPC_AAM", 1)
+        aam = self.letter("PSR2-F2-AAM-CPC-GEN-GLB-CAR-0002", "AAM_CPC", 2, response_to=cpc)
+        for code, kind in [("AAA-111", "Volquete"), ("BBB-222", "Camión volquete")]:
+            equipment = Equipment.objects.create(code=code, equipment_type=kind)
+            presentation = Presentation.objects.create(cpc_letter=cpc, equipment=equipment, equipment_type=kind, created_by=self.user)
+            Evaluation.objects.create(presentation=presentation, response_letter=aam, result=Evaluation.Result.APPROVED, detail="", updated_by=self.user)
+        self.assertEqual(current_inventory_by_type(), [{"equipment_type": "Camión volquete", "total": 2}])
 
     def letter(self, number, direction, day, **kwargs):
         return Letter.objects.create(
