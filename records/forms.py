@@ -198,6 +198,25 @@ class ManualRecordForm(forms.Form):
         label="PDF AAM de respaldo", required=False, widget=forms.FileInput(attrs={"accept": ".pdf"})
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        guidance = {
+            "cpc_full_number": ("Ejemplo: PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", "PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001"),
+            "predecessor_aam": ("Solo para subsanaciones: indica la respuesta AAM de la presentación anterior.", "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0001"),
+            "equipment_type": ("Ejemplo: camioneta o camión volquete.", "Camioneta"),
+            "equipment_code": ("Indica la placa o el código que identifica el equipo.", "BVL-812"),
+            "result": ("Si hay resultado, completa el número y la fecha de la respuesta AAM.", None),
+            "detail": ("Obligatorio si el resultado es observado; describe la observación.", None),
+            "aam_full_number": ("Completa número y fecha cuando exista una respuesta AAM.", "PSR2-F2-AAM-CPC-GEN-GLB-CAR-0001"),
+            "aam_date": ("Necesaria cuando indicas el número de respuesta o un resultado SST.", None),
+            "cpc_pdf": ("Opcional. PDF de hasta 10 MB.", None),
+            "aam_pdf": ("Opcional. PDF de hasta 10 MB.", None),
+        }
+        for name, (help_text, placeholder) in guidance.items():
+            self.fields[name].help_text = help_text
+            if placeholder:
+                self.fields[name].widget.attrs["placeholder"] = placeholder
+
     def clean_cpc_pdf(self):
         return validate_pdf_upload(self.cleaned_data.get("cpc_pdf"))
 

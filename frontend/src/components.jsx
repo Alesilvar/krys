@@ -13,18 +13,19 @@ export function Panel({children, className=''}) {return <section className={'pan
 export function Csrf({token}) {return <input type="hidden" name="csrfmiddlewaretoken" value={token}/>}
 export function Field({field}) {
   const {id,name,label,type,value,required,help,errors,choices,attrs} = field;
-  const common = {id,name,required,defaultValue:value, 'aria-invalid': errors.length ? 'true' : undefined, 'aria-describedby': errors.length ? `${id}-error` : undefined};
+  const describedBy = [help && `${id}-help`, errors.length && `${id}-errors`].filter(Boolean).join(' ') || undefined;
+  const common = {id,name,required,defaultValue:value, 'aria-invalid': errors.length ? 'true' : undefined, 'aria-describedby': describedBy};
   let input;
   if(type === 'textarea') input = <textarea {...common} rows={attrs.rows}/>;
   else if(type === 'select') input = <select {...common}>{choices.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>;
-  else if(type === 'file') input = <input id={id} name={name} type="file" required={required} accept={attrs.accept} multiple={attrs.multiple}/>;
+  else if(type === 'file') input = <input id={id} name={name} type="file" required={required} accept={attrs.accept} multiple={attrs.multiple} aria-invalid={errors.length ? "true" : undefined} aria-describedby={describedBy}/>;
   else input = <input {...common} type={type} placeholder={attrs.placeholder}/>;
-  return <div className={'form-field '+(['detail','additional_data'].includes(name)?'full-width':'')}><label htmlFor={id}>{label}</label>{input}{help && <small>{help}</small>}{errors.map((e,i)=><span id={`${id}-error`} className="field-error" key={i}>{e}</span>)}</div>;
+  return <div className={'form-field '+(['detail','additional_data'].includes(name)?'full-width':'')}><label htmlFor={id}>{label}{required && <span className="required-mark"> (obligatorio)</span>}</label>{input}{help && <small id={`${id}-help`}>{help}</small>}{errors.length > 0 && <div id={`${id}-errors`} className="field-error" role="alert">{errors.map((e,i)=><div key={i}>{e}</div>)}</div>}</div>;
 }
 export function FormErrors({errors=[]}) {return errors.length ? <div className="field-error" role="alert">{errors.map((e,i)=><div key={i}>{e}</div>)}</div> : null}
 export function EditForm({data, sections, button='Guardar cambios'}) {
   const fields=data.form.fields;
-  return <form method="post" encType="multipart/form-data" className="stack-form"><Csrf token={data.csrf}/><FormErrors errors={data.form.errors}/>{sections ? sections.map(section=><React.Fragment key={section.title}><div className="form-section"><span className="eyebrow">{section.eyebrow}</span><h2>{section.title}</h2></div><div className="two-columns">{section.fields.map(name=>fields.find(f=>f.name===name)).filter(Boolean).map(field=><Field key={field.name} field={field}/>)}</div></React.Fragment>) : <div className="two-columns">{fields.map(field=><Field key={field.name} field={field}/>)}</div>}<div className="form-actions"><Button type="submit">{button}</Button></div></form>;
+  return <form method="post" encType="multipart/form-data" className="stack-form"><Csrf token={data.csrf}/><FormErrors errors={data.form.errors}/>{sections ? sections.map(section=><React.Fragment key={section.title}><div className="form-section"><span className="eyebrow">{section.eyebrow}</span><h2>{section.title}</h2>{section.description && <p>{section.description}</p>}</div><div className="two-columns">{section.fields.map(name=>fields.find(f=>f.name===name)).filter(Boolean).map(field=><Field key={field.name} field={field}/>)}</div></React.Fragment>) : <div className="two-columns">{fields.map(field=><Field key={field.name} field={field}/>)}</div>}<div className="form-actions"><Button type="submit">{button}</Button></div></form>;
 }
 export function LinkPdf({href, children}) {return href ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> : null}
 const menuItems = [

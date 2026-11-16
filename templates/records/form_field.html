@@ -1,6 +1,6 @@
 <div class="form-field {% if field.name == 'detail' or field.name == 'additional_data' %}full-width{% endif %}">
-  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required-mark"> (obligatorio)</span>{% endif %}</label>
   {{ field }}
-  {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
-  {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  {% if field.help_text %}<small id="{{ field.id_for_label }}_helptext">{{ field.help_text }}</small>{% endif %}
+  {% if field.errors %}<div class="field-error" id="{{ field.id_for_label }}_error" role="alert">{% for error in field.errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
 </div>

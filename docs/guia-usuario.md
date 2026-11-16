@@ -8,7 +8,7 @@ En **Registros**, el panel separa la situación actual del historial. El gráfic
 
 ## Cargar cartas PDF
 
-1. Con permiso de edición, abre **Cargar cartas**, selecciona una o varias cartas CPC y AAM y pulsa **Extraer y revisar**. Incluye documentos anteriores cuando sean necesarios para establecer la cadena. Los PDF deben tener texto seleccionable; KS no hace reconocimiento óptico (OCR). Cada archivo debe ser un PDF válido de hasta 10 MB.
+1. Con permiso de edición, abre **Cargar cartas**, selecciona una o varias cartas CPC y AAM y pulsa **Extraer y revisar**. Incluye documentos anteriores cuando sean necesarios para establecer la cadena. Los PDF deben tener texto seleccionable; KS no hace reconocimiento óptico (OCR). Se admiten hasta 20 archivos por carga, cada uno un PDF válido de hasta 10 MB. Con JavaScript activo puedes revisar los archivos seleccionados y quitar alguno antes de extraer.
 2. Compara los datos extraídos y las advertencias con los documentos originales. Introduce la fecha de recepción de cada CPC y, si corresponde, el dato adicional de cada equipo.
 3. Si se indica un conflicto con una evaluación existente, revisa ambos valores y marca la casilla de reemplazo solo si deseas sustituirla. Si no la marcas, la evaluación actual se conserva.
 4. Pulsa **Guardar datos**. La vista previa no guarda registros hasta su confirmación. Si caduca o aparece un error, vuelve a cargar y revisar los archivos.
@@ -17,7 +17,7 @@ Si hay un dato extraído incorrectamente, no lo des por válido: revisa los docu
 
 ## Ingreso y edición manual
 
-En **Ingreso manual**, completa los datos CPC, la fecha de recepción y el equipo. Para una subsanación indica la respuesta AAM anterior; si hay resultado SST, proporciona también el número y la fecha de la respuesta. Adjuntar PDF es opcional. Guarda el registro; si la carta ya existe, se agrega otra fila a esa carta.
+En **Ingreso manual**, completa los campos marcados como obligatorios en las secciones de carta CPC y equipo. El formulario incluye ejemplos y explica los campos de la respuesta AAM. Para una subsanación indica la respuesta AAM anterior; si hay resultado SST, proporciona también el número y la fecha de la respuesta. Adjuntar PDF es opcional. Guarda el registro; si la carta ya existe, se agrega otra fila a esa carta.
 
 En **Registros**, usa **Editar** para una presentación. En **Cartas** puedes editar la carta o el equipo de una desmovilización. Los cambios en datos compartidos de una carta afectan a todos sus equipos. Las validaciones se muestran en el formulario; corrige los campos y vuelve a guardar.
 

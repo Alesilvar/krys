@@ -68,6 +68,25 @@ class DashboardApiTests(TestCase):
         self.assertEqual(number['value'], 'invalid')
         self.assertTrue(number['errors'])
 
+    def test_manual_guidance_and_conditional_validation(self):
+        self.user.is_superuser = True
+        self.user.save()
+        self.client.force_login(self.user)
+        data = self.payload(self.client.get(reverse('manual_record')))
+        fields = {field['name']: field for field in data['form']['fields']}
+        self.assertTrue(fields['cpc_full_number']['required'])
+        self.assertIn('subsanaciones', fields['predecessor_aam']['help'])
+        response = self.client.post(reverse('manual_record'), {
+            'cpc_full_number': 'PSR2-F2-CPC-AAM-GEN-GLB-CAR-0002',
+            'cpc_date': '2026-01-01', 'reception_date': '2026-01-01',
+            'equipment_type': 'Camioneta', 'equipment_code': 'PRUEBA-1',
+            'result': 'OBSERVED', 'detail': '',
+        })
+        fields = {field['name']: field for field in self.payload(response)['form']['fields']}
+        self.assertTrue(fields['aam_full_number']['errors'])
+        self.assertTrue(fields['detail']['errors'])
+        self.assertFalse(Equipment.objects.filter(code='PRUEBA-1').exists())
+
     def test_edit_and_delete_payloads(self):
         self.user.is_superuser = True
         self.user.save()
