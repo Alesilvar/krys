@@ -43,7 +43,7 @@ Django crea una base de pruebas separada. Las pruebas de extracción y algunas p
 KRYS_TEST_SAMPLES_DIR=/ruta/a/las/muestras USE_SQLITE=1 .venv/bin/python manage.py test
 ```
 
-El comando debe terminar sin fallos; si faltan las muestras, revisa el resultado antes de asumir cobertura completa. La suite de extracción independiente también se puede ejecutar con `.venv/bin/python -m pytest test_extractor.py`. Las muestras pueden contener información sensible y no deben incorporarse al repositorio sin autorización.
+El comando debe terminar sin fallos; si faltan las muestras, revisa el resultado antes de asumir cobertura completa. La suite de extracción independiente también se puede ejecutar con `.venv/bin/python -m pytest test_extractor.py test_ocr.py`. Las pruebas de OCR usan una carta de muestra para verificar el texto original y una copia temporal rasterizada de su primera página; requieren Poppler, Tesseract y el idioma `spa`, y omiten la prueba correspondiente si falta la muestra o el OCR. Las muestras pueden contener información sensible y no deben incorporarse al repositorio sin autorización.
 
 ## Frontend
 
