@@ -66,3 +66,24 @@ a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var
 @media(min-width:1001px){.authenticated-shell .page-shell:has(.dashboard-home){padding-top:20px;padding-bottom:24px}}
 @media(min-width:1001px) and (max-width:1200px){.dashboard-home .dashboard-panels{grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr)}.dashboard-home .dashboard-welcome{align-items:center;flex-direction:row}.dashboard-home .dashboard-actions{justify-content:flex-end}.dashboard-home .chart-layout{flex-direction:column;gap:12px}.dashboard-home .pie-chart{width:130px}}
 @media(max-width:620px){.dashboard-home .dashboard-welcome{align-items:flex-start;margin-bottom:16px}.dashboard-home .dashboard-actions{gap:8px}.dashboard-home .summary-grid .stat-card{padding:10px 12px}.dashboard-home .summary-grid .stat-card strong{font-size:24px}.dashboard-home .chart-layout{gap:12px}.dashboard-home .pie-chart{width:150px}}
+
+/* Dashboard: prioritize the overview and keep both panels visible on laptops. */
+.dashboard-home .dashboard-welcome,.dashboard-home .hero-row{margin-bottom:12px}
+.dashboard-home .dashboard-welcome .eyebrow,.dashboard-home .hero-row .eyebrow,.dashboard-home .summary-heading{display:none}
+.dashboard-home .dashboard-welcome h1,.dashboard-home .hero-row h1{font-size:26px}
+.dashboard-home .dashboard-welcome p,.dashboard-home .hero-row p{font-size:13px;margin-top:2px}
+.dashboard-home .summary-grid .stat-card{display:grid;grid-template-columns:auto 1fr;column-gap:12px;align-items:center;padding:10px 14px}
+.dashboard-home .summary-grid .stat-card strong{grid-column:1;grid-row:1 / 3;font-size:29px;margin:0}
+.dashboard-home .summary-grid .stat-card span,.dashboard-home .summary-grid .stat-card small{grid-column:2}
+.dashboard-home .summary-grid .stat-card span{line-height:1.25}
+.dashboard-home .summary-grid .stat-card small{font-size:11px;line-height:1.25}
+.dashboard-home .panel-heading h2{font-size:19px}
+.dashboard-home .panel-heading .eyebrow{display:none}
+.dashboard-home .chart-description,.dashboard-home .pending-description{font-size:12px}
+.dashboard-home .chart-legend{width:100%;gap:4px}
+.dashboard-home .chart-legend li{gap:6px;line-height:1.25}
+.dashboard-home .pending-list a>span{margin-top:1px}
+@media(min-width:761px){.dashboard-home .dashboard-panels{grid-template-columns:minmax(0,1.4fr) minmax(270px,1fr)}.dashboard-home .chart-layout{flex-direction:row}.dashboard-home .pie-chart{width:clamp(110px,12vw,160px)}.dashboard-home .summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1300px){.dashboard-home .chart-legend{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}}
+@media(max-width:760px){.dashboard-home .summary-grid .stat-card{column-gap:8px}.dashboard-home .summary-grid .stat-card strong{font-size:24px}.dashboard-home .chart-layout{flex-direction:row}.dashboard-home .pie-chart{width:110px}}
+@media(max-width:420px){.dashboard-home .chart-layout{flex-direction:column}}

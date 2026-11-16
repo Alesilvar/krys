@@ -2,6 +2,7 @@
 {% load static %}
 {% block title %}Inicio · KS{% endblock %}
 {% block content %}
+<div class="dashboard-home">
 <section class="hero-row">
   <div>
     <span class="eyebrow">Control documental SST</span>
@@ -32,4 +33,5 @@
   <div class="pending-footer"><a href="{% url 'letters' %}?status=pending">Ver todas las pendientes <span aria-hidden="true">→</span></a></div>
 </section></div>
 
+</div>
 {% endblock %}
