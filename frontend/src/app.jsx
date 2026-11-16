@@ -37,7 +37,7 @@ function RoutedApp() {
     if (pending.current?.url === url) {setData(pending.current.data); pending.current = null; setReadyUrl(url); setVersion(v => v+1); setLoading(false); setError(''); return;}
     const controller = new AbortController();
     setLoading(true); setError('');
-    requestPage(url, {signal: controller.signal}).then(result => {if (result) {setData(result.data); setReadyUrl(url); setVersion(v=>v+1);}}).catch(e=>{if (e.name !== 'AbortError') setError(e.message);}).finally(()=>{if (!controller.signal.aborted) setLoading(false);});
+    requestPage(url, {signal: controller.signal}).then(result => {if (result) {setData(result.data); setReadyUrl(url); setVersion(v=>v+1);}}).catch(e=>{if (e.name !== 'AbortError') setError('No se pudo cargar esta página. Comprueba la conexión y vuelve a intentarlo.');}).finally(()=>{if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
   }, [url]);
 
@@ -58,11 +58,11 @@ function RoutedApp() {
       if (!result) return;
       if (result.redirected && result.url !== url) {pending.current = result; navigate(result.url);}
       else {setData(result.data); setVersion(v=>v+1);}
-    } catch (e) {setError(e.message);} finally {busy.current = false; setLoading(false);}
+    } catch (e) {setError('No se pudo completar la operación. Comprueba la conexión y vuelve a intentarlo.');} finally {busy.current = false; setLoading(false);}
   }
   const Page = pages[data.page];
   useEffect(() => {document.title = ({dashboard:'Registros', letters:'Cartas', upload_letters:'Cargar cartas', manual_record:'Ingreso manual', profile:'Mi perfil', login:'Ingresar', edit_presentation:'Editar registro', edit_letter:'Editar carta', edit_movement:'Editar desmovilización', delete_letter:'Eliminar carta'}[data.page] || 'KS') + ' · KS';}, [data.page]);
-  return <div onSubmitCapture={submit}><Layout data={data}>{error && <div className="message message-error" role="alert">{error}</div>}{loading && <p className="muted" role="status">Cargando…</p>}{readyUrl === url && Page && <Page key={version} data={data}/>}</Layout></div>;
+  return <div onSubmitCapture={submit}><Layout data={data}>{error && <div className="message message-error" role="alert"><strong>No se pudo completar la solicitud</strong><span>{error}</span>{readyUrl !== url && <button className="button button-ghost button-small" type="button" onClick={()=>window.location.reload()}>Volver a intentar</button>}</div>}{loading && <div className="loading-state" role="status"><span className="loading-indicator" aria-hidden="true"/>Procesando, espera un momento…</div>}{readyUrl === url && Page && <Page key={version} data={data}/>}</Layout></div>;
 }
 
 const routes = ['/', '/ingresar/', '/perfil/', '/cartas/', '/cargar/', '/registro/nuevo/', '/registro/:id/editar/', '/carta/:id/editar/', '/carta/:id/eliminar/', '/desmovilizacion/:id/editar/'];

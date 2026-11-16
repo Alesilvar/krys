@@ -14,7 +14,7 @@
 <details class="panel form-panel expedient">
   {% with latest=group|last %}<summary><strong>Expediente {{ group.0.full_number }}</strong><span>{{ group|length }} carta{{ group|length|pluralize }} · Última CPC: {{ latest.letter_date|date:'d/m/Y' }} · {% if latest.response_letter %}Última carta respondida{% else %}Última carta pendiente{% endif %}</span></summary>{% endwith %}
   {% for letter in group %}
-  <article style="padding: 1rem 0; border-top: 1px solid #ddd; margin-top: 1rem">
+  <article class="expedient-letter">
     <h2>CPC {{ letter.full_number }}</h2>
     <p>Fecha: {{ letter.letter_date|date:'d/m/Y' }}{% if letter.reception_date %} · Recepción: {{ letter.reception_date|date:'d/m/Y' }}{% endif %} · {{ letter.get_purpose_display }}</p>
     <p>{% if letter.pdf %}<a href="{% url 'letter_pdf' letter.pk %}" target="_blank" rel="noopener">Abrir PDF CPC</a>{% else %}PDF CPC no disponible{% endif %}</p>
@@ -25,5 +25,5 @@
   </article>
   {% endfor %}
 </details>
-{% empty %}<section class="panel form-panel"><p>{% if query or status %}No hay expedientes para estos filtros. Prueba otra búsqueda o limpia los filtros.{% else %}Aún no hay expedientes registrados.{% endif %}</p></section>{% endfor %}
+{% empty %}<section class="panel form-panel"><div class="empty-state">{% if query or status %}<strong>No hay expedientes para estos filtros.</strong><span>Prueba otra búsqueda o limpia los filtros.</span>{% else %}<strong>Aún no hay expedientes registrados.</strong><span>Cuando registres una carta CPC, aparecerá aquí.</span>{% endif %}</div></section>{% endfor %}
 {% endblock %}
