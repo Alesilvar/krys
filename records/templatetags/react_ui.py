@@ -86,8 +86,7 @@ def build_payload(context):
         letter = context['letter']
         data['letter'] = {'number': letter.full_number, 'correlative': letter.correlative}
         if page == 'delete_letter':
-            response = getattr(letter, 'response_letter', None)
-            data['letter'].update(presentations=letter.presentations.count(), movements=letter.requested_movements.count(), response=response.full_number if response else '')
+            data['letter'].update(context['impact'])
         if context.get('movement'):
             data['movement'] = {'code': context['movement'].equipment.code}
     return data

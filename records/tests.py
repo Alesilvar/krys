@@ -641,6 +641,23 @@ class TestLetterExpedients(TestCase):
         self.assertEqual(movement.response_letter.full_number, data["aam_full_number"])
         self.assertTrue(AuditEvent.objects.filter(action=AuditEvent.Action.UPDATE, object_type="Letter").exists())
 
+    def test_delete_review_reports_impact_without_deleting(self):
+        equipment = Equipment.objects.create(code="REV-1", equipment_type="Volquete")
+        Presentation.objects.create(cpc_letter=self.cpc, equipment=equipment, equipment_type="Volquete", created_by=self.user)
+        EquipmentMovement.objects.create(equipment=equipment, request_letter=self.cpc, status=EquipmentMovement.Status.REQUESTED, movement_date=date(2026, 1, 1), equipment_type="Volquete", created_by=self.user)
+        response = self.client.get(reverse("delete_letter", args=[self.cpc.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["impact"], {"presentations": 1, "movements": 1,
+            "response": self.response.full_number, "cpc_pdf": False, "response_pdf": False, "followups": 1})
+        self.assertContains(response, "carta posterior se conservará")
+        self.assertTrue(Letter.objects.filter(pk=self.cpc.pk).exists())
+        payload = self.client.get(reverse("delete_letter", args=[self.cpc.pk]), HTTP_X_KS_CLIENT="react").json()["letter"]
+        self.assertEqual(payload["followups"], 1)
+        self.assertEqual(payload["presentations"], 1)
+        reader = get_user_model().objects.create_user("delete-review-reader")
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get(reverse("delete_letter", args=[self.cpc.pk])).status_code, 403)
+
     def test_delete_preserves_followup_and_login_required(self):
         self.client.post(reverse("delete_letter", args=[self.cpc.pk]))
         self.followup.refresh_from_db()

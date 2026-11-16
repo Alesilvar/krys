@@ -181,9 +181,18 @@ def delete_letter(request, pk):
     letter = get_object_or_404(Letter, pk=pk, direction=Letter.Direction.CPC_AAM)
     if request.method == "POST":
         number = delete_cpc_letter(letter, request.user)
-        messages.success(request, f"La carta {number} y todos sus datos fueron eliminados.")
-        return redirect("dashboard")
-    return render_page(request, "records/delete.html", {"letter": letter})
+        messages.success(request, f"La carta {number} y sus datos asociados fueron eliminados.")
+        return redirect("letters")
+    response = getattr(letter, "response_letter", None)
+    impact = {
+        "presentations": letter.presentations.count(),
+        "movements": letter.requested_movements.count(),
+        "response": response.full_number if response else "",
+        "cpc_pdf": bool(letter.pdf),
+        "response_pdf": bool(response and response.pdf),
+        "followups": response.followup_letters.count() if response else 0,
+    }
+    return render_page(request, "records/delete.html", {"letter": letter, "impact": impact})
 
 
 @login_required

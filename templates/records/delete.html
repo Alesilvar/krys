@@ -1,12 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}Eliminar carta · KS{% endblock %}
 {% block content %}
-<section class="danger-card">
-  <span class="danger-icon">!</span><span class="eyebrow">Eliminación definitiva</span>
-  <h1>¿Eliminar la carta CPC {{ letter.correlative }}?</h1>
-  <p>Se eliminarán permanentemente sus {{ letter.presentations.count }} presentaciones y {{ letter.requested_movements.count }} desmovilizaciones, la respuesta AAM vinculada y sus archivos PDF disponibles. Esta acción no puede recuperarse.</p>
-  <div class="danger-summary"><strong>{{ letter.full_number }}</strong>{% if letter.response_letter %}<span>Respuesta: {{ letter.response_letter.full_number }}</span>{% endif %}</div>
-  <p>Las subsanaciones posteriores se conservan, aunque dejarán de estar vinculadas a esta respuesta.</p>
-  <form method="post">{% csrf_token %}<a class="button button-ghost" href="{% url 'dashboard' %}">Cancelar</a><button class="button button-danger" type="submit">Sí, eliminar definitivamente</button></form>
+<section class="danger-card delete-review" aria-labelledby="delete-title">
+  <span class="danger-icon" aria-hidden="true">!</span><span class="eyebrow">Eliminación definitiva</span>
+  <h1 id="delete-title">Eliminar carta CPC</h1>
+  <p>Revisa el alcance antes de confirmar. Esta acción no puede deshacerse.</p>
+  <div class="danger-summary"><strong>{{ letter.full_number }}</strong></div>
+  <div class="delete-impact"><h2>Se eliminarán</h2><ul>
+    <li>La carta CPC y {% if impact.cpc_pdf %}su PDF adjunto{% else %}sus datos; no tiene PDF adjunto{% endif %}.</li>
+    <li><strong>{{ impact.presentations }}</strong> presentaciones de equipos y <strong>{{ impact.movements }}</strong> desmovilizaciones asociadas.</li>
+    <li>{% if impact.response %}La respuesta AAM <strong>{{ impact.response }}</strong>{% if impact.response_pdf %} y su PDF adjunto.{% else %}; no tiene PDF adjunto.{% endif %}{% else %}No hay respuesta AAM vinculada.{% endif %}</li>
+  </ul><p>{% if impact.followups %}<strong>{{ impact.followups }}</strong> {% if impact.followups == 1 %}carta posterior se conservará, pero dejará de estar vinculada{% else %}cartas posteriores se conservarán, pero dejarán de estar vinculadas{% endif %} a la respuesta eliminada.{% else %}No hay cartas posteriores vinculadas a la respuesta.{% endif %}</p><p>Las fichas de los equipos se conservan; su estado operativo puede recalcularse.</p></div>
+  <form method="post">{% csrf_token %}<a class="button button-ghost" href="{% url 'letters' %}">Cancelar y volver a cartas</a><button class="button button-danger" type="submit">Eliminar carta definitivamente</button></form>
 </section>
 {% endblock %}
