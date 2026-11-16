@@ -32,6 +32,7 @@ class TestRecordModels(TestCase):
         self.user = get_user_model().objects.create_user("tester", password="safe-test-password")
 
     def test_active_chart_counts_only_active_equipment_and_groups_types(self):
+        cpc = self.letter("PSR2-F2-CPC-AAM-GEN-GLB-CAR-0001", "CPC_AAM", 1)
         for code, kind, status in [
             ("AAA-111", "Volquete", Equipment.OperationalStatus.ACTIVE),
             ("BBB-222", "Camión volquete", Equipment.OperationalStatus.ACTIVE),
@@ -40,7 +41,9 @@ class TestRecordModels(TestCase):
             ("EEE-555", "Volquete", Equipment.OperationalStatus.RETIRED),
             ("FFF-666", "Volquete", Equipment.OperationalStatus.REVIEW),
         ]:
-            Equipment.objects.create(code=code, equipment_type=kind, operational_status=status)
+            equipment = Equipment.objects.create(code=code, equipment_type=kind, operational_status=status)
+            Presentation.objects.create(cpc_letter=cpc, equipment=equipment, equipment_type=kind, created_by=self.user)
+        Equipment.objects.create(code="GGG-777", equipment_type="", operational_status=Equipment.OperationalStatus.ACTIVE)
         chart = active_equipment_chart()
         self.assertEqual(chart["total"], 3)
         self.assertEqual([(item["equipment_type"], item["total"]) for item in chart["items"]],

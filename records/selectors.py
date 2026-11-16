@@ -124,10 +124,11 @@ def current_inventory_by_type():
 
 
 def active_equipment_chart():
-    """Agrupa cada equipo activo por tipo para el gráfico del panel."""
+    """Agrupa equipos activos con historial documentado, una vez por equipo."""
     groups = Equipment.objects.filter(
-        operational_status=Equipment.OperationalStatus.ACTIVE
-    ).values("equipment_type").annotate(total=Count("id"))
+        Q(presentations__isnull=False) | Q(movements__isnull=False),
+        operational_status=Equipment.OperationalStatus.ACTIVE,
+    ).values("equipment_type").annotate(total=Count("id", distinct=True))
     totals = {}
     for group in groups:
         name = canonical_equipment_type(group["equipment_type"]) if group["equipment_type"] else "Sin tipo"

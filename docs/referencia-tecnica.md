@@ -13,7 +13,7 @@ La carga envía archivos a `records.services`, que valida los PDF, usa `extracto
 - Los tipos reconocidos y sus equivalencias se normalizan al registrar equipos. El inventario agrupa también equivalencias históricas sin modificar los registros originales. Los tipos desconocidos o ambiguos se conservan como texto: el catálogo todavía no es obligatorio y, por ejemplo, una cisterna de agua no se considera potable sin evidencia.
 - La extracción requiere PDF con texto seleccionable; las vistas previas pueden incluir advertencias y conflictos de evaluación. Un conflicto solo reemplaza una evaluación existente tras la confirmación explícita del usuario.
 - El estado operativo se deriva de las fechas de aprobación AAM, solicitud de retiro CPC y autorización de retiro AAM. Una aprobación posterior puede reactivar el equipo. Si una aprobación y un retiro comparten la fecha más reciente, queda **Por revisar** hasta que un editor resuelva el empate; la decisión se invalida al cambiar los eventos o sus fechas.
-- El gráfico de equipos activos agrupa por tipo todos los equipos con estado activo, incluidos los que no tienen tipo, y excluye los demás estados. No depende de los filtros del historial.
+- El gráfico de equipos activos agrupa por tipo los equipos con estado activo y al menos una presentación o movimiento, incluidos los que no tienen tipo; excluye equipos sin historial y los demás estados. No depende de los filtros del historial.
 - El inventario por tipo cuenta equipos con alguna evaluación aprobada y estado activo o retiro solicitado, con tipo no vacío; excluye retirados y equipos por revisar. El historial y sus filtros combinan presentaciones y desmovilizaciones; al filtrar por resultado SST se excluyen movimientos.
 
 ## Variables de entorno

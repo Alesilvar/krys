@@ -11,26 +11,29 @@
   {% if perms.records.manage_records %}<div class="hero-actions"><a class="button button-secondary" href="{% url 'manual_record' %}">Ingreso manual</a><a class="button button-primary" href="{% url 'upload_letters' %}">+ Cargar cartas PDF</a></div>{% endif %}
 </section>
 
-<section class="stats-grid" aria-label="Resumen">
-  <article class="stat-card"><span>Registros</span><strong>{{ total }}</strong><small>presentaciones y retiros</small></article>
-  <article class="stat-card stat-approved"><span>Equipos en uso</span><strong>{{ inventory_total }}</strong><small>placas aprobadas no retiradas</small></article>
-  <article class="stat-card stat-approved"><span>Aprobados</span><strong>{{ approved }}</strong><small>aptos para ingreso</small></article>
-  <article class="stat-card stat-observed"><span>Observados</span><strong>{{ observed }}</strong><small>requieren subsanación</small></article>
-  <article class="stat-card stat-retired"><span>Retirados</span><strong>{{ retired }}</strong><small>equipos desmovilizados</small></article>
-  <article class="stat-card"><span>Sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
+<section class="dashboard-summary" aria-labelledby="current-summary">
+  <div class="summary-heading"><div><span class="eyebrow">Situación actual</span><h2 id="current-summary">Estado de equipos y cartas</h2></div><p>Indicadores generales, independientes de los filtros del historial.</p></div>
+  <div class="summary-grid">
+    <article class="stat-card stat-approved"><span>Activos documentados</span><strong>{{ active_chart.total }}</strong><small>equipos con estado activo</small></article>
+    <article class="stat-card stat-approved"><span>En uso con aprobación</span><strong>{{ inventory_total }}</strong><small>tipo registrado; incluye retiro solicitado</small></article>
+    <article class="stat-card stat-retired"><span>Equipos retirados</span><strong>{{ retired }}</strong><small>estado operativo actual</small></article>
+    <article class="stat-card stat-observed"><span>Cartas sin respuesta</span><strong>{{ pending_letters }}</strong><small>cartas CPC pendientes</small></article>
+  </div>
 </section>
 
 <section class="panel active-chart-panel" aria-labelledby="active-chart-title">
   <div class="panel-heading"><div><span class="eyebrow">Estado operativo</span><h2 id="active-chart-title">Equipos activos por tipo</h2></div><span class="count-pill">{{ active_chart.total }} equipos</span></div>
-  <p class="chart-description">Solo equipos con estado activo; excluye retiros solicitados y equipos retirados o por revisar.</p>
+  <p class="chart-description">Equipos con estado activo y al menos una presentación o movimiento. Los equipos sin historial no se cuentan.</p>
   {% if active_chart.total %}<div class="chart-layout"><div class="pie-chart" aria-hidden="true" style="background: conic-gradient({{ active_chart.gradient }})"></div><ul class="chart-legend">{% for item in active_chart.items %}<li><span class="chart-swatch" aria-hidden="true" style="background: {{ item.color }}"></span><span>{{ item.equipment_type }}</span><strong>{{ item.total }} <small>({{ item.percentage }} %)</small></strong></li>{% endfor %}</ul></div>{% else %}<div class="empty-state"><span>No hay equipos activos para mostrar.</span></div>{% endif %}
 </section>
 
-<section class="panel">
-  <div class="panel-heading"><div><span class="eyebrow">Inventario actual</span><h2>Equipos en uso por tipo</h2></div><span class="count-pill">{{ inventory_total }} equipos</span></div>
-  {% if inventory_by_type %}<div class="stats-grid">
-    {% for item in inventory_by_type %}<article class="stat-card"><span>{{ item.equipment_type }}</span><strong>{{ item.total }}</strong><small>en uso actualmente</small></article>{% endfor %}
-  </div>{% else %}<div class="empty-state"><span>Aún no hay equipos aprobados en uso.</span></div>{% endif %}
+<section class="dashboard-summary history-summary" aria-labelledby="history-summary">
+  <div class="summary-heading"><div><span class="eyebrow">Historial</span><h2 id="history-summary">Actividad registrada</h2></div><p>Una misma unidad puede tener varias presentaciones y evaluaciones.</p></div>
+  <div class="summary-grid">
+    <article class="stat-card"><span>Registros históricos</span><strong>{{ total }}</strong><small>presentaciones y retiros</small></article>
+    <article class="stat-card stat-approved"><span>Evaluaciones aprobadas</span><strong>{{ approved }}</strong><small>resultados registrados en el historial</small></article>
+    <article class="stat-card stat-observed"><span>Evaluaciones observadas</span><strong>{{ observed }}</strong><small>resultados históricos; pueden estar subsanados</small></article>
+  </div>
 </section>
 
 <section class="panel">

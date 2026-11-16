@@ -4,7 +4,7 @@ KS mantiene cartas CPC, respuestas AAM y registros de equipos. Inicia sesión co
 
 ## Consultar y exportar
 
-En **Registros**, el gráfico de pastel distribuye por tipo los equipos con estado activo; excluye los que tienen retiro solicitado, están retirados o están por revisar. Incluye los equipos sin tipo en una categoría separada. En la misma pantalla, busca por placa, carta o tipo; también puedes filtrar por resultado SST y estado operativo. Pulsa **Filtrar** y usa **CSV** o **Excel** para exportar la selección. Los indicadores resumen el conjunto de datos, no solo la selección. En **Cartas**, busca por número o equipo y filtra por respuesta pendiente o respondida; abre un expediente para ver cartas, equipos y PDF disponibles.
+En **Registros**, el panel separa la situación actual del historial. El gráfico de pastel agrupa por tipo los equipos con estado activo y al menos una presentación o movimiento; los equipos sin historial no se cuentan y los que no tienen tipo se muestran por separado. «En uso con aprobación» cuenta equipos con tipo, alguna evaluación aprobada y estado activo o retiro solicitado, por lo que puede diferir del gráfico. Las evaluaciones observadas son históricas y pueden haberse subsanado. En la misma pantalla, busca por placa, carta o tipo; también puedes filtrar por resultado SST y estado operativo. Pulsa **Filtrar** y usa **CSV** o **Excel** para exportar la selección. Los indicadores resumen el conjunto de datos, no solo la selección. En **Cartas**, busca por número o equipo y filtra por respuesta pendiente o respondida; abre un expediente para ver cartas, equipos y PDF disponibles.
 
 ## Cargar cartas PDF
 
