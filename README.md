@@ -4,7 +4,7 @@ KS registra cartas CPC y respuestas AAM, extrae información de PDF con texto se
 
 ## Comenzar
 
-Se necesitan Python 3.12, Docker con Compose y acceso a su servicio, y `pdftotext` de Poppler. Desde esta carpeta, después de preparar los requisitos y el entorno como se explica en [instalación y desarrollo](docs/instalacion-desarrollo.md):
+Se necesitan Python 3.12, Docker con Compose y acceso a su servicio, Poppler y Tesseract con datos de español para PDF escaneados. Desde esta carpeta, después de preparar los requisitos y el entorno como se explica en [instalación y desarrollo](docs/instalacion-desarrollo.md):
 
 ```bash
 ./start.sh

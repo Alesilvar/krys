@@ -2,7 +2,7 @@
 
 ## Requisitos
 
-En Ubuntu instala o ten disponibles Python 3.12 con soporte para `venv`, Docker Engine con Compose y acceso al servicio Docker, y Poppler (`pdftotext`). Confirma con `python3.12 --version`, `docker compose version`, `docker info` y `pdftotext -v`. Consulta la documentación oficial de cada herramienta para instalarlas. Node.js y npm solo son necesarios para modificar React; utiliza una versión compatible con la versión de Vite fijada en `frontend/package-lock.json`.
+En Ubuntu instala o ten disponibles Python 3.12 con soporte para `venv`, Docker Engine con Compose y acceso al servicio Docker, Poppler (`pdftotext` y `pdftoppm`) y Tesseract con datos de español. En Ubuntu, los paquetes son `poppler-utils`, `tesseract-ocr` y `tesseract-ocr-spa`. Confirma con `python3.12 --version`, `docker compose version`, `docker info`, `pdftotext -v`, `pdftoppm -v` y `tesseract --list-langs` (debe incluir `spa`). Consulta la documentación oficial de cada herramienta para instalarlas. Node.js y npm solo son necesarios para modificar React; utiliza una versión compatible con la versión de Vite fijada en `frontend/package-lock.json`.
 
 Los siguientes comandos se ejecutan desde la raíz del repositorio. Prepara las dependencias Python:
 

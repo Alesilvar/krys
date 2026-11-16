@@ -12,6 +12,7 @@ import argparse
 import re
 import subprocess
 import sys
+import tempfile
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import date
@@ -184,12 +185,50 @@ def extract_pdf_text(path: Path) -> str:
         )
     except subprocess.TimeoutExpired as error:
         raise ExtractionError(f"La lectura de {path.name} superó el tiempo permitido.") from error
+    except FileNotFoundError as error:
+        raise ExtractionError("Falta pdftotext; instala Poppler para leer PDF.") from error
     if process.returncode != 0:
         error = process.stderr.decode("utf-8", errors="replace").strip()
         raise ExtractionError(f"No se pudo leer {path.name}: {error}")
     text = process.stdout.decode("utf-8", errors="replace")
     if not text.strip():
-        raise ExtractionError(f"El PDF no contiene texto seleccionable: {path.name}")
+        return extract_pdf_ocr(path)
+    return text
+
+
+def extract_pdf_ocr(path: Path) -> str:
+    """Reconoce PDF sin texto seleccionable, conservando el orden de páginas."""
+    with tempfile.TemporaryDirectory(prefix="krys-ocr-") as directory:
+        prefix = Path(directory) / "pagina"
+        try:
+            rendered = subprocess.run(
+                ["pdftoppm", "-r", "200", "-png", str(path), str(prefix)],
+                check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120,
+            )
+            if rendered.returncode != 0:
+                detail = rendered.stderr.decode("utf-8", errors="replace").strip()
+                raise ExtractionError(f"No se pudo preparar {path.name} para OCR: {detail}")
+            pages = sorted(prefix.parent.glob("pagina-*.png"),
+                           key=lambda page: int(page.stem.rsplit("-", 1)[1]))
+            texts = []
+            for page in pages:
+                result = subprocess.run(
+                    ["tesseract", str(page), "stdout", "-l", "spa", "--psm", "3"],
+                    check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120,
+                )
+                if result.returncode != 0:
+                    detail = result.stderr.decode("utf-8", errors="replace").strip()
+                    raise ExtractionError(f"Falló el OCR de {path.name}: {detail}")
+                texts.append(result.stdout.decode("utf-8", errors="replace"))
+        except FileNotFoundError as error:
+            raise ExtractionError(
+                "Falta pdftoppm o tesseract; instala Poppler y Tesseract con el idioma español."
+            ) from error
+        except subprocess.TimeoutExpired as error:
+            raise ExtractionError(f"El OCR de {path.name} superó el tiempo permitido.") from error
+    text = "\n\f\n".join(texts)
+    if not text.strip():
+        raise ExtractionError(f"No se pudo reconocer texto mediante OCR en {path.name}.")
     return text
 
 

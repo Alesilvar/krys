@@ -41,6 +41,6 @@ Comprueba que `pg_restore` termine sin errores, que el conteo sea razonable y qu
 
 - **No conecta Docker:** comprueba que el servicio esté activo y que tu usuario tenga acceso; no hace falta compartir contraseñas.
 - **Falta `.venv` o una dependencia:** sigue la [instalación](instalacion-desarrollo.md) y comprueba la versión de Python.
-- **Error al extraer PDF:** confirma que `pdftotext` esté disponible, que el archivo tenga texto seleccionable y sea un PDF válido de hasta 10 MB; revisa la cadena documental.
+- **Error al extraer PDF:** confirma que `pdftotext`, `pdftoppm` y `tesseract` estén disponibles, que `tesseract --list-langs` incluya `spa` y que el archivo sea un PDF válido de hasta 10 MB; revisa la calidad del escaneo y la cadena documental.
 - **Error de conexión a la base:** comprueba el estado de Compose, puerto y variables de conexión. Cambiar variables de Django no cambia por sí solo las credenciales de una base existente.
 - **Fallan pruebas con archivos ausentes:** revisa `KRYS_TEST_SAMPLES_DIR` y la estructura de muestras descrita en la [guía de desarrollo](instalacion-desarrollo.md).
