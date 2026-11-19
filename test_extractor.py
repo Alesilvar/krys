@@ -139,6 +139,33 @@ los siguientes equipos y vehículos:
             parse_cpc(text, Path("682.pdf"), 0)
 
 
+class ListedApprovalTests(unittest.TestCase):
+    def test_724_approves_only_five_listed_items_from_682(self):
+        cpc = ROOT / "PDF-PSR2/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0682 XXXVII envío.pdf"
+        aam = ROOT / "PDF-PSR2/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0724.pdf"
+        if not cpc.is_file() or not aam.is_file():
+            self.skipTest("Faltan las cartas 682 y 724 de ejemplo")
+        response = parse_response(extract_pdf_text(aam), aam, 1)
+        self.assertEqual(set(response.evaluations), {"BDG-925", "BEC-729", "CMO-442", "BCT-894", "2146365"})
+        self.assertEqual(response.default_result, "")
+        rows, warnings = extract_documents([cpc, aam])
+        self.assertEqual(len(rows), 5)
+        self.assertTrue(all(row.result == "Aprobado" and row.aam_correlative == 724 for row in rows))
+        self.assertEqual(warnings, [])
+
+    def test_does_not_approve_list_with_unrecognized_item(self):
+        text = """Lima, 3 de noviembre de 2026
+CARTA No. PSR2-F2-AAM-CPC-GEN-GLB-CAR-0724
+Referencia: Carta No. PSR2-F2-CPC-AAM-GEN-GLB-CAR-0682
+La documentación presentada para dichas unidades no presenta observaciones.
+• Camión, Placa: BDG-925.
+• Equipo sin identificador.
+En virtud de lo expuesto, se da la conformidad el ingreso y operación de los referidos vehículos y equipo.
+"""
+        with self.assertRaises(ExtractionError):
+            parse_response(text, Path("724.pdf"), 0)
+
+
 class MatchingRulesTests(unittest.TestCase):
     def test_multiple_responses_are_not_silently_overwritten(self):
         cpc = Letter('CPC-1', 1, date(2026, 1, 1), 'CPC_AAM', Path('cpc.pdf'), 0,

@@ -538,6 +538,8 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
             evaluations = parse_explicit_approvals_response(text)
         if not evaluations:
             evaluations = parse_individual_observations_response(text)
+        if not evaluations:
+            evaluations = parse_listed_unobserved_approval(text)
 
     normalized = normalized_for_matching(text)
     if is_blanket_approval(normalized):
@@ -555,6 +557,33 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
         default_result=default_result,
         default_detail=default_detail,
     )
+
+
+def parse_listed_unobserved_approval(text: str) -> dict[str, Evaluation]:
+    """Approve only identifiers listed between an unobserved review and authorization."""
+    section = re.search(
+        r"documentaci[oó]n presentada para dichas unidades no presenta observaciones\."
+        r"(.*?)En virtud de lo expuesto,\s*se da la conformidad\s+(?:(?:al|el)\s+)?"
+        r"ingreso\s+y\s+operaci[oó]n\s+de\s+los\s+referidos\s+veh[ií]culos\s+y\s+equipo",
+        text, re.IGNORECASE | re.DOTALL,
+    )
+    if not section:
+        return {}
+    lines = [line.strip() for line in section.group(1).splitlines() if line.strip()]
+    evaluations: dict[str, Evaluation] = {}
+    for line in lines:
+        match = re.fullmatch(
+            rf"[•-]\s+[^\n]+?,\s*(?:placa\s*:\s*({CODE_RE})|"
+            r"n[uú]mero de serie\s+(\d{5,}))\s*\.?",
+            line, re.IGNORECASE,
+        )
+        if not match:
+            return {}
+        code = normalize_code(match.group(1) or match.group(2))
+        if code in evaluations:
+            return {}
+        evaluations[code] = Evaluation(code, "Aprobado", "Aprobado")
+    return evaluations
 
 
 def parse_individual_observations_response(text: str) -> dict[str, Evaluation]:
