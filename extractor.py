@@ -305,6 +305,11 @@ def parse_cpc(text: str, path: Path, source_order: int) -> Letter:
             # subsanacion. Las menciones narrativas del cuerpo no se usan.
             letter.referenced_aam = aam_reference.group(0).upper()
 
+    explicit_list = extract_numbered_plate_serial_list(text)
+    if explicit_list is not None:
+        letter.equipment.extend(explicit_list)
+        return letter
+
     section = find_equipment_list_section(text)
     if section:
         equipment_pattern = re.compile(
@@ -414,6 +419,38 @@ def parse_demobilization_response(
     if "conformidad para el retiro" not in normalized or not codes:
         raise ExtractionError(f"No se extrajo la conformidad de retiro de {path.name}")
     return ParsedDemobilizationResponse(letter=letter, equipment_codes=codes)
+
+
+def extract_numbered_plate_serial_list(text: str) -> list[Equipment] | None:
+    """Read the explicitly submitted list of vehicles and serial-numbered equipment."""
+    intro = re.search(
+        r"los siguientes equipos y veh[ií]culos\b[^:]{0,250}:\s*",
+        text, re.IGNORECASE | re.DOTALL,
+    )
+    if not intro:
+        return None
+    lines = text[intro.end():].splitlines()
+    items: list[Equipment] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            if items:
+                break
+            continue
+        numbered = re.match(r"^(\d+)\.\s+(.+)$", line)
+        if not numbered:
+            break
+        match = re.fullmatch(
+            rf"(.+?),\s*(placa|n[uú]mero de serie)\s+({CODE_RE}|\d{{5,}})\s*\.?",
+            numbered.group(2), re.IGNORECASE,
+        )
+        if not match or int(numbered.group(1)) != len(items) + 1:
+            raise ExtractionError("No se reconoció toda la lista numerada de equipos; se requiere revisión.")
+        equipment_type = re.sub(r"\s*\([^)]*\)\s*$", "", match.group(1)).strip()
+        items.append(Equipment(normalize_code(match.group(3)), equipment_type))
+    if not items or len({item.code for item in items}) != len(items):
+        raise ExtractionError("No se reconoció toda la lista numerada de equipos; se requiere revisión.")
+    return items
 
 
 def find_equipment_list_section(text: str) -> str | None:

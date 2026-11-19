@@ -14,6 +14,7 @@ from extractor import (
     extract_documents,
     extract_pdf_text,
     parse_response,
+    parse_cpc,
     parse_demobilization_request,
     parse_demobilization_response,
     validate_demobilization_pair,
@@ -113,6 +114,29 @@ class RealDocumentExtractionTests(unittest.TestCase):
 
     def test_no_warnings_for_valid_samples(self):
         self.assertEqual(self.warnings, [])
+
+
+class NumberedVehicleListTests(unittest.TestCase):
+    def test_extracts_plates_and_numeric_serial_from_682(self):
+        path = ROOT / "PDF-PSR2/PSR2-F2-CPC-AAM-GEN-GLB-CAR-0682 XXXVII envío.pdf"
+        if not path.is_file():
+            self.skipTest("Falta la carta 682 de ejemplo")
+        letter = parse_cpc(extract_pdf_text(path), path, 0)
+        self.assertEqual([(item.code, item.equipment_type) for item in letter.equipment], [
+            ("BDG-925", "Camión grúa"), ("BEC-729", "Camión grúa"),
+            ("CMO-442", "Camioneta SUV"), ("BCT-894", "Cisterna de combustible"),
+            ("2146365", "Plataforma de elevación tipo tijera"),
+        ])
+
+    def test_rejects_unrecognized_item_instead_of_returning_partial_list(self):
+        text = """Lima, 2 de noviembre de 2026
+CARTA No. PSR2-F2-CPC-AAM-GEN-GLB-CAR-0682
+los siguientes equipos y vehículos:
+1. Camión grúa, placa BDG-925.
+2. Equipo sin identificador.
+"""
+        with self.assertRaises(ExtractionError):
+            parse_cpc(text, Path("682.pdf"), 0)
 
 
 class MatchingRulesTests(unittest.TestCase):
