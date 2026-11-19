@@ -166,6 +166,22 @@ En virtud de lo expuesto, se da la conformidad el ingreso y operación de los re
             parse_response(text, Path("724.pdf"), 0)
 
 
+class ParenthesizedObservationTests(unittest.TestCase):
+    def test_0204_observes_nine_explicit_plates_without_approving_the_tenth(self):
+        path = ROOT / "PDF-PSR2/PSR2-F2-AAM-CPC-GEN-GLB-CAR-0204.pdf"
+        if not path.is_file():
+            self.skipTest("Falta la carta 0204 de ejemplo")
+        response = parse_response(extract_pdf_text(path), path, 0)
+        self.assertEqual(set(response.evaluations), {
+            "ACF-842", "F3K-736", "CLZ-885", "CLZ-828", "AZI-919",
+            "CDY-935", "VCZ-793", "VDA-942", "VDA-947",
+        })
+        self.assertEqual(response.default_result, "")
+        self.assertIn("póliza TREC", response.evaluations["CLZ-885"].detail)
+        self.assertNotIn("CONSORCIO", response.evaluations["AZI-919"].detail)
+        self.assertTrue(all(item.result == "Observado-No conforme" for item in response.evaluations.values()))
+
+
 class MatchingRulesTests(unittest.TestCase):
     def test_multiple_responses_are_not_silently_overwritten(self):
         cpc = Letter('CPC-1', 1, date(2026, 1, 1), 'CPC_AAM', Path('cpc.pdf'), 0,

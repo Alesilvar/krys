@@ -41,3 +41,7 @@ Los valores mostrados son predeterminados locales, no credenciales de producció
 ## Pruebas y cambios
 
 La [guía de desarrollo](instalacion-desarrollo.md) explica comandos y ubicación de muestras. Las pruebas cubren, entre otros, extracción, importación, reglas, permisos, API y exportación. Consulta [contribución](../CONTRIBUTING.md) para mantener esta referencia junto con los cambios de código.
+
+### Ejemplos y auditoría de formatos
+
+El [inventario inicial de formatos](inventario-formatos-cartas.md) reúne ejemplos revisados, límites de cobertura y el comando para repetir la auditoría local de PDF. Los resultados automáticos deben contrastarse con las cartas originales.

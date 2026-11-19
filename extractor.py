@@ -540,6 +540,8 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
             evaluations = parse_individual_observations_response(text)
         if not evaluations:
             evaluations = parse_listed_unobserved_approval(text)
+        if not evaluations:
+            evaluations = parse_parenthesized_plate_observations(text)
 
     normalized = normalized_for_matching(text)
     if is_blanket_approval(normalized):
@@ -557,6 +559,35 @@ def parse_response(text: str, path: Path, source_order: int) -> ParsedResponse:
         default_result=default_result,
         default_detail=default_detail,
     )
+
+
+def parse_parenthesized_plate_observations(text: str) -> dict[str, Evaluation]:
+    """Read explicitly observed plate paragraphs, without approving unlisted units."""
+    intro = re.search(
+        r"se han identificado diversas observaciones;\s*las mismas\s+que indicamos a continuaci[oó]n:",
+        text, re.IGNORECASE | re.DOTALL,
+    )
+    if not intro:
+        return {}
+    end = re.search(r"^\s*Por lo tanto,", text[intro.end():], re.IGNORECASE | re.MULTILINE)
+    if not end:
+        return {}
+    block = text[intro.end():intro.end() + end.start()]
+    starts = list(re.finditer(
+        rf"^[ \t]*[^\n()]+\(Placa:\s*({CODE_RE})\)[ \t]*",
+        block, re.IGNORECASE | re.MULTILINE,
+    ))
+    evaluations: dict[str, Evaluation] = {}
+    for index, match in enumerate(starts):
+        following = starts[index + 1].start() if index + 1 < len(starts) else len(block)
+        segment = block[match.end():following].split("\f", 1)[0]
+        segment = re.split(r"^\s*\d+\s*/\s*\d+\s*$", segment, maxsplit=1, flags=re.MULTILINE)[0]
+        detail = normalize_space(segment)
+        code = normalize_code(match.group(1))
+        if not detail or code in evaluations:
+            return {}
+        evaluations[code] = Evaluation(code, "Observado-No conforme", detail)
+    return evaluations
 
 
 def parse_listed_unobserved_approval(text: str) -> dict[str, Evaluation]:
